@@ -159,3 +159,6 @@ target_link_libraries(raptor PRIVATE "-framework AppKit")
 set_target_properties(raptor PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Info.plist
     OUTPUT_NAME "raptor")
+
+# ---- Tools -------------------------------------------------------------
+add_subdirectory(tools/extract_assets)
