@@ -19,6 +19,10 @@
 #include "sprite_meta_dumper.h"
 #include "wav_writer.h"
 
+/* mus2mid: converts Doom MUS format to standard MIDI.
+ * Source lives in apodmx/MUS2MID.C — included here via target_sources. */
+#include "MUS2MID.H"
+
 /*
  * GLB_GetFileItems() is declared in glbapi.h after our addition.
  * GLB_InitSystem() signature (verified from GFX/GLBAPI.C):
@@ -208,6 +212,137 @@ static void extract_sprites(const char *outdir, int total_items)
             written, skipped_non_linear, skipped_bad_dims);
 }
 
+/*
+ * extract_music() - dump all _MUS items as MIDI files.
+ *
+ * Raptor music items are stored in Doom MUS format (starts with "MUS\x1a").
+ * We convert each item to standard MIDI using the mus2mid() converter from
+ * apodmx/MUS2MID.C, then write the resulting .mid file verbatim.
+ *
+ * If an item already starts with "MThd" it is already MIDI and is written
+ * directly. (Raptor only uses MUS, but we handle both defensively.)
+ *
+ * mus2mid() convention: returns false (0) on success, true (1) on error.
+ */
+static void extract_music(const char *outdir)
+{
+    char dir[4096];
+    snprintf(dir, sizeof dir, "%s/music", outdir);
+    if (make_dir(dir) != 0) return;
+
+    int total = 0;
+    for (int f = 0; f < 15; f++) {
+        int n = GLB_GetFileItems(f);
+        if (n == 0) break;
+        total += n;
+    }
+
+    int written = 0;
+
+    for (int i = 0; i < total; i++) {
+        char name[64];
+        DWORD handle;
+        size_t sz;
+        if (GLB_GetItemInfo(i, name, sizeof(name), &handle, &sz) != 0) continue;
+
+        if (!name_has_suffix(name, "_MUS")) continue;
+        if (sz < 4) continue;
+
+        BYTE *mem = (BYTE *)GLB_GetItem(handle);
+        if (!mem) {
+            fprintf(stderr, "[music skip null] %s\n", name);
+            continue;
+        }
+
+        char path[4096 + 80];
+        snprintf(path, sizeof path, "%s/%s.mid", dir, name);
+
+        if (memcmp(mem, "MThd", 4) == 0) {
+            /* Already MIDI — write directly. */
+            FILE *fp = fopen(path, "wb");
+            if (fp) {
+                fwrite(mem, 1, sz, fp);
+                fclose(fp);
+                written++;
+                fprintf(stdout, "music: wrote %s (raw MIDI, sz=%zu)\n", path, sz);
+            } else {
+                fprintf(stderr, "[music open error] %s: %s\n", path, strerror(errno));
+            }
+            GLB_FreeItem(handle);
+            continue;
+        }
+
+        /* MUS format — convert via mus2mid using a temp file pair. */
+        char tmp_mus[64], tmp_mid[64];
+        snprintf(tmp_mus, sizeof tmp_mus, "/tmp/ea_mus_%d.mus", i);
+        snprintf(tmp_mid, sizeof tmp_mid, "/tmp/ea_mus_%d.mid", i);
+
+        FILE *fmus = fopen(tmp_mus, "wb");
+        if (!fmus) {
+            fprintf(stderr, "[music tmp write error] %s\n", tmp_mus);
+            GLB_FreeItem(handle);
+            continue;
+        }
+        fwrite(mem, 1, sz, fmus);
+        fclose(fmus);
+
+        fmus = fopen(tmp_mus, "rb");
+        FILE *fmid = fopen(tmp_mid, "wb");
+        if (!fmus || !fmid) {
+            if (fmus) fclose(fmus);
+            if (fmid) fclose(fmid);
+            remove(tmp_mus);
+            GLB_FreeItem(handle);
+            continue;
+        }
+
+        /*
+         * mus2mid(input, output, rate, adlibhack)
+         * rate=140 (timer rate — matches DMX default)
+         * adlibhack=0 (not needed for standard MIDI output)
+         * Returns false on success, true on error (Doom convention).
+         */
+        bool err = mus2mid(fmus, fmid, 140, 0);
+        fclose(fmus);
+        fclose(fmid);
+        remove(tmp_mus);
+
+        if (err) {
+            fprintf(stderr, "[music mus2mid failed] %s\n", name);
+            remove(tmp_mid);
+            GLB_FreeItem(handle);
+            continue;
+        }
+
+        FILE *fin = fopen(tmp_mid, "rb");
+        FILE *fout = fopen(path, "wb");
+        if (fin && fout) {
+            char buf[4096];
+            size_t n;
+            size_t total_written = 0;
+            while ((n = fread(buf, 1, sizeof buf, fin)) > 0) {
+                fwrite(buf, 1, n, fout);
+                total_written += n;
+            }
+            fclose(fin);
+            fclose(fout);
+            remove(tmp_mid);
+            written++;
+            fprintf(stdout, "music: wrote %s (%zu bytes MIDI)\n",
+                    path, total_written);
+        } else {
+            if (fin)  fclose(fin);
+            if (fout) fclose(fout);
+            remove(tmp_mid);
+            fprintf(stderr, "[music copy error] %s\n", path);
+        }
+
+        GLB_FreeItem(handle);
+    }
+
+    fprintf(stdout, "extract_assets: dumped %d music files\n", written);
+}
+
 static void usage(const char *me) {
     fprintf(stderr,
         "usage: %s <FILE0000.GLB> <FILE0001.GLB> <output_dir>\n", me);
@@ -331,6 +466,9 @@ int main(int argc, char **argv) {
 
     /* Extract _FX digital PCM items as WAV files. */
     dump_sound_items(outdir);
+
+    /* Extract _MUS items as MIDI files (converted from Doom MUS format). */
+    extract_music(outdir);
 
     return 0;
 }
