@@ -17,6 +17,7 @@ find_package(PNG REQUIRED)
 add_executable(extract_assets
     main.c
     png_writer.c
+    demo_dumper.c
     ${EXTRACT_LEGACY_SOURCES}
 )
 target_include_directories(extract_assets PRIVATE

@@ -14,6 +14,7 @@
 #include "GLBAPI.H"
 #include "GFXAPI.H"
 #include "png_writer.h"
+#include "demo_dumper.h"
 
 /*
  * GLB_GetFileItems() is declared in glbapi.h after our addition.
@@ -315,6 +316,9 @@ int main(int argc, char **argv) {
 
     /* Extract _PIC items as PNG files. */
     extract_sprites(outdir, total_items);
+
+    /* Extract _REC (demo recording) items as JSON files. */
+    dump_demo_items(outdir);
 
     return 0;
 }
