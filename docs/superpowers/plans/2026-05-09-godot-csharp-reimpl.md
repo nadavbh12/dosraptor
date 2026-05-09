@@ -162,6 +162,8 @@ textures/canvas_textures/default_texture_filter=0
 
 Path: `raptor-godot/raptor.csproj`
 
+The `DefaultItemExcludes` is required: without it, the .NET SDK's default glob `**/*.cs` pulls in `tests/SmokeTests.cs` (which references xunit not declared in this csproj) and Godot's own scratch dir `.godot/mono/temp/obj/Debug/raptor.AssemblyInfo.cs` (which duplicates the auto-generated AssemblyInfo). Both fail the build hard.
+
 ```xml
 <Project Sdk="Godot.NET.Sdk/4.3.0">
   <PropertyGroup>
@@ -171,6 +173,13 @@ Path: `raptor-godot/raptor.csproj`
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      Default SDK glob compiles every *.cs under the project root. Exclude:
+        tests/**  — has its own RaptorTests.csproj with xUnit/FsCheck refs
+        .godot/** — Godot editor scratch dir; regenerates AssemblyInfo.cs
+                    that duplicates the one MSBuild auto-generates.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);.godot/**;tests/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>
 ```
@@ -276,8 +285,10 @@ Insert before the `[dotnet]` section. The leading `*` is Godot syntax for "treat
 
 - [ ] **Step 4: Run headless and verify SimClock ticks**
 
-Run: `godot --path . --headless --quit-after 70`
-Expected: exits 0, no errors. Temporarily add a debug print to verify SimClock is reached:
+Run: `godot --path . --headless --rendering-driver opengl3 --quit-after 5`
+Expected: exits 0, no errors. The `--rendering-driver opengl3` is needed because Godot 4.6.2's `--headless` mode otherwise hangs in main-loop without an explicit driver on macOS with the Compatibility config. `--quit-after 5` (process frames) is plenty to confirm the project starts and the autoload binds.
+
+Temporarily add a debug print to verify SimClock is reached:
 
 ```csharp
 public override void _Ready() {
