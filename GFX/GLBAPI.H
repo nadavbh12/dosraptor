@@ -18,7 +18,12 @@
 #ifndef _TYPES_H
 #include "types.h"
 #endif
-  
+
+/* GLB_GetItemInfo() takes a `size_t` for the name buffer length, so
+ * this header has to pull in stddef. Was self-sufficient until that
+ * function was added in Stage 1 of the Godot port. */
+#include <stddef.h>
+
 #ifndef _GLBAPI
 #define _GLBAPI
 
