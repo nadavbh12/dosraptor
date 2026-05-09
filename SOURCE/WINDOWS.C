@@ -1730,7 +1730,10 @@ VOID
       RAP_LoadMap();
       GFX_SetRetraceFlag ( FALSE );
 
+      /* Port parity emitter: record mission context for win-state reporting. */
+      { extern void raptor_parity_game_enter(int); raptor_parity_game_enter(cur_game); }
       abort_flag = Do_Game();
+      { extern void raptor_parity_game_exit(void); raptor_parity_game_exit(); }
 
       hangto = HANGTOSTORE;
 

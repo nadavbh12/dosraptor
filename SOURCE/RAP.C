@@ -1107,6 +1107,9 @@ VOID
       while ( FRAME_COUNT - local_cnt < 3 ) legacy_pump();
       local_cnt = FRAME_COUNT;
 
+      /* Port parity emitter: emit one JSON checkpoint per simulated second. */
+      { extern void raptor_parity_tick(void); raptor_parity_tick(); }
+
       if ( fadeflag )
          TILE_ShakeScreen();
       else
@@ -1690,6 +1693,9 @@ main ( INT argc, CHAR * argv[] )
 
    /* Port test hook: RAPTOR_TEST=init dumps globals + exits here. */
    { extern void raptor_test_init_checkpoint(void); raptor_test_init_checkpoint(); }
+
+   /* Port parity emitter: open RAPTOR_PARITY_OUT if set. */
+   { extern void raptor_parity_init(void); raptor_parity_init(); }
 
    cur_game     = 0;
    game_wave[0] = 0;

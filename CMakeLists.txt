@@ -57,6 +57,7 @@ set(RAPTOR_PLATFORM_SOURCES
     port/platform/frame_dump.c
     port/platform/playthrough.c
     port/platform/crash_trace.c
+    port/platform/parity.c
     port/platform/macos_activate.m)
 
 set(RAPTOR_ASM_C_SOURCES
