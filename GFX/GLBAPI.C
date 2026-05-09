@@ -265,6 +265,63 @@ INT filenum
 }
 
 /*------------------------------------------------------------------------
+   GLB_GetItemInfo() - Returns info about an item by global sequential index.
+   Global index: file 0 items (0..FileItems(0)-1), then file 1 items, etc.
+   Returns 0 on success, -1 if idx out of range.
+ ------------------------------------------------------------------------*/
+INT
+GLB_GetItemInfo (
+INT    idx,
+CHAR  *name_out,
+size_t name_max,
+DWORD *handle_out,
+size_t *size_out
+)
+{
+   ITEM_H   itm;
+   ITEMINFO *ii;
+   int      filenum;
+   int      itemnum;
+
+   if ( idx < 0 )
+      return -1;
+
+   /* Walk files until we consume enough items to reach idx. */
+   for ( filenum = 0; filenum < num_glbs; filenum++ )
+   {
+      int count = filedesc[ filenum ].items;
+      if ( idx < count )
+      {
+         itemnum = idx;
+         goto found;
+      }
+      idx -= count;
+   }
+   return -1;   /* out of range */
+
+found:
+   ii = filedesc[ filenum ].item + itemnum;
+
+   if ( name_out && name_max > 0 )
+   {
+      strncpy( name_out, ii->name, name_max - 1 );
+      name_out[ name_max - 1 ] = '\0';
+   }
+
+   if ( size_out )
+      *size_out = (size_t)ii->size;
+
+   if ( handle_out )
+   {
+      itm.id.filenum = (WORD)filenum;
+      itm.id.itemnum = (WORD)itemnum;
+      *handle_out = itm.handle;
+   }
+
+   return 0;
+}
+
+/*------------------------------------------------------------------------
    GLB_NumItems() - Returns number of items in a .GLB file
  ------------------------------------------------------------------------*/
 PRIVATE INT

@@ -52,6 +52,24 @@ INT filenum                // INPUT: file number (0-based)
 );
 
 /*************************************************************************
+   GLB_GetItemInfo() - Returns info about an item by global index
+   idx is the global sequential index across all loaded files:
+   file 0 items first (0 .. FileItems(0)-1), then file 1 items, etc.
+   Returns 0 on success, -1 if idx is out of range.
+   name_out receives the item name (truncated to name_max-1 chars + NUL).
+   handle_out receives the DWORD handle suitable for GLB_LockItem etc.
+   size_out receives the raw data size in bytes.
+ *************************************************************************/
+INT
+GLB_GetItemInfo (
+INT    idx,                // INPUT : global item index
+CHAR  *name_out,           // OUTPUT: item name buffer
+size_t name_max,           // INPUT : size of name_out buffer
+DWORD *handle_out,         // OUTPUT: handle for GLB_LockItem/GLB_GetItem
+size_t *size_out           // OUTPUT: raw data size in bytes
+);
+
+/*************************************************************************
    GLB_InitSystem() - Starts up .GLB file system
  *************************************************************************/
 INT

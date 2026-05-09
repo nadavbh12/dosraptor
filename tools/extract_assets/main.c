@@ -92,6 +92,28 @@ int main(int argc, char **argv) {
             "(n0=%d, n1=%d)\n", n0, n1);
     }
 
+    /* Smoke test: print first 5 items from each archive. */
+    fprintf(stdout, "\nFirst items in FILE0000.GLB:\n");
+    for (int i = 0; i < 5 && i < n0; i++) {
+        char name[64];
+        DWORD handle;
+        size_t sz;
+        if (GLB_GetItemInfo(i, name, sizeof name, &handle, &sz) == 0) {
+            fprintf(stdout, "  [%d] name=%-16s handle=0x%08lx size=%zu\n",
+                    i, name, (unsigned long)handle, sz);
+        }
+    }
+    fprintf(stdout, "\nFirst items in FILE0001.GLB:\n");
+    for (int i = 0; i < 5 && i < n1; i++) {
+        char name[64];
+        DWORD handle;
+        size_t sz;
+        if (GLB_GetItemInfo(n0 + i, name, sizeof name, &handle, &sz) == 0) {
+            fprintf(stdout, "  [%d] name=%-16s handle=0x%08lx size=%zu\n",
+                    n0 + i, name, (unsigned long)handle, sz);
+        }
+    }
+
     /* Create output directory (ignore EEXIST). */
     mkdir(outdir, 0755);
 
