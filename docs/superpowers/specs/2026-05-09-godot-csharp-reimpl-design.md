@@ -213,7 +213,22 @@ public partial class SimClock : Node
 }
 ```
 
-Order of `_PhysicsProcess` invocation across siblings is Godot-defined (scene-tree order). Sim entities should not depend on cross-entity ordering within a tick. Where ordering matters (e.g., bullet hits applied before enemy AI), use signals deferred to the next frame, or explicit phase separation in WaveController.
+**Per-tick phase order** is explicitly defined and owned by `WaveController`, not left to scene-tree traversal. The phases run in this fixed order each tick:
+
+1. **Input** — read input events; update `PlayerInputBuffer`.
+2. **Spawn** — wave script may spawn new enemies based on `SimClock.Frame`.
+3. **Movement** — enemies, bullets, player. Each entity updates its own position from its own velocity. Order within a phase is scene-tree order; no cross-entity reads.
+4. **Collision collection** — gather candidate (bullet, target) pairs from `Area2D` overlap signals or AABB checks.
+5. **Collision resolution** — apply damage, score, item drops in a deterministic sorted order (by entity ID).
+6. **Cleanup** — free dead entities; update spawn pool.
+7. **HUD update** — score / shield / bomb counter.
+8. **Checkpoint emission** — once per second (`Frame % 70 == 0`).
+
+Each entity exposes `Tick<phase>()` methods that `WaveController` invokes; entities do NOT use `_PhysicsProcess` directly. Scene-tree order only determines per-phase iteration order, which is stable per build but irrelevant to phase-level ordering.
+
+Codex review (2026-05-09) flagged that without an explicit phase contract, stable-but-wrong tick orderings (e.g., enemy AI before bullet hits applied) would pass L1 forever and quietly drift in L2 within tolerance. The phase order above closes that gap.
+
+Order of `_PhysicsProcess` invocation across non-sim siblings (HUD animations, particles) is Godot-defined and irrelevant to parity.
 
 ### 4.4 Collision
 
@@ -442,7 +457,9 @@ Defends against: input handling errors, menu state machine errors, dialog dispat
 
 9 demos extracted from FILE0001.GLB. Each loaded by Godot's `DemoPlayback` (overrides player position from records), runs the corresponding wave's enemy AI with seeded RNG, captures parity output, compared to C goldens.
 
-Defends against: enemy AI errors, scoring errors, collision errors, spawn timing errors.
+Defends against: enemy AI errors, scoring errors, **enemy-bullet-vs-player collision** errors (the player position is fixed but takes hits normally), spawn timing errors.
+
+**Does NOT defend against**: player movement bugs, player-input handling bugs, player-bullet-vs-enemy collision in cases that require the player's bullets to be timed by player input (since the demo overrides position but not the player's firing decisions in a way that re-runs through the fire pipeline). Treat L2b as an "enemy AI under a fixed player trajectory" test, not full end-to-end simulation. L2a (script parity) covers the input pipeline gap.
 
 ### 8.4 L3 — Property invariants
 
@@ -600,6 +617,17 @@ Phase 1 is complete when:
 Phase 1 is **not** complete just because the game appears to work. Phase 1 is "the suite goes green and stays green."
 
 ---
+
+## 13a. Known limitations (accepted risk)
+
+These were raised in the 2026-05-09 Codex adversarial review and explicitly accepted by the spec owner. Documenting them so future-me knows what isn't being protected:
+
+- **Held-out goldens are readable from the working tree.** The held-out script files at `tests/scripts/holdout/` are denied to AI sessions, but their corresponding goldens at `tests/parity/scripts/holdout/` and `tests/parity/seeds/holdout/` are not. An AI implementation could in principle read the goldens and shape output to match, bypassing the held-out defense entirely. **Accepted because** this is a personal project, not an adversarial-AI competition; treating it as security-grade test isolation is overkill.
+- **Comparator tolerances are loose enough that bugs can slip through.** With ±15% score, ±8 px position, 95% checkpoint pass, and advisory-only `obj_hash`, a game with classes of bugs (intermittently broken collision, off-by-one HP, mis-tuned weapon damage) could pass numerics. **Accepted because** L7 (vision-model visual diff) plus owner playtesting catches the categories of bugs the loose numerics miss; tightening tolerances would force pattern-A architecture, which the owner explicitly rejected.
+- **L2b demo parity tests "enemy AI under fixed player trajectory," not full end-to-end simulation.** Player-movement and full-input-pipeline coverage live in L2a only.
+- **L2 comparator runs at 1 Hz checkpoints, not per tick.** Sub-second misbehavior between checkpoints (e.g., enemies briefly invulnerable, bullets passing through hitboxes) can be invisible to the comparator if state recovers by the next checkpoint. Mitigated partially by `obj_hash` (advisory) capturing inventory deltas, but not by anything stricter.
+
+If any of these become real failure modes during implementation, revisit the spec. They're not "won't fix" — they're "good enough until proven otherwise."
 
 ## 14. Open questions for implementation time
 
