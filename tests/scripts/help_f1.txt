@@ -1,0 +1,6 @@
+wait 60
+dump 01_menu
+key F1
+wait 100
+dump 02_help_screen
+quit

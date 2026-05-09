@@ -1,0 +1,45 @@
+# Template for jumping to a specific wave via godmode cheat.
+# Boot the binary with S_HOST=CASTLE to enable godmode, then a Q/W/E/R/T/Y/U/I/O
+# press in shipcomp picks wave 0..8 and auto-launches the mission.
+#
+# This template uses placeholder __WAVE_KEY__ which the test harness
+# substitutes (Q for wave 0, W for wave 1, ..., O for wave 8) before
+# pointing RAPTOR_PLAYTHROUGH at the materialized script.
+wait 60
+key Return
+wait 100
+key T
+wait 5
+key E
+wait 5
+key S
+wait 5
+key T
+wait 5
+key Return
+wait 30
+key T
+wait 5
+key 1
+wait 5
+key Return
+wait 400
+dump 01_difficulty
+key Return
+wait 600
+dump 02_hangar_supplies
+key Down
+wait 100
+dump 03_hangar_mission
+key Return
+wait 700
+dump 04_sector_select
+# Q/W/E/R/T/Y/U/I/O = wave 0..8 (godmode); also exits shipcomp.
+key __WAVE_KEY__
+wait 700
+dump 05_after_shipcomp
+wait 700
+dump 06_in_mission
+wait 700
+dump 07_in_mission_late
+quit

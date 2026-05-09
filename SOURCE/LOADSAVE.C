@@ -5,8 +5,8 @@
 #include <conio.h>
 #include <io.h>
 #include <dos.h>
-#include <sys\types.h>
-#include <sys\stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "prefapi.h"
 
@@ -638,9 +638,19 @@ VOID
 
    var1 = getenv ( pogpath );
 
-   strncpy ( cdpath, var1, 32 );
+   if ( var1 != NULL )
+   {
+      strncpy ( cdpath, var1, 32 );
+      cdpath[32] = '\0';
+   }
+   else
+   {
+      /* APOGEECD env var is a DOS install marker; on the port the GLBs
+       * live next to the binary in cwd, so leave cdpath empty. */
+      cdpath[0] = '\0';
+   }
 
-   if ( access ( cdpath, F_OK ) == 0 )
+   if ( cdpath[0] && access ( cdpath, F_OK ) == 0 )
       cdflag = TRUE;
    else
       cdflag = FALSE;
@@ -666,4 +676,3 @@ VOID
 {
    return ( g_setup_ini );
 }
-

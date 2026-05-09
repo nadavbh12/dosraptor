@@ -20,7 +20,8 @@
 #ifndef MUS2MID_H
 #define MUS2MID_H
 
-int mus2mid(FILE *musinput, FILE *midioutput, int rate, int adlibhack);
+#include <stdbool.h>
+bool mus2mid(FILE *musinput, FILE *midioutput, int rate, int adlibhack);
 
 #endif /* #ifndef MUS2MID_H */
 

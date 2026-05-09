@@ -55,7 +55,7 @@ INT
 ANIMS_Register (
    DWORD item,             // INPUT : lumpnum of first frame
    INT   numframes,        // INPUT : number of frames
-   BOOL  groundflag,       // INPUT : on the ground = TRUE
+   INT   groundflag,       // INPUT : GFLAG enum (defined in ANIMS.C)
    BOOL  playerflag,       // INPUT : follow player movements
    BOOL  transparent,      // INPUT : Transparent ( LIGHT )
    ANIM_DIR adir           // INPUT : Anim Direction
@@ -151,4 +151,3 @@ INT y                      // INPUT : y position
 );
 
 #endif
-

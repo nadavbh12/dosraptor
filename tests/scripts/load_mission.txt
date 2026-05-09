@@ -1,0 +1,11 @@
+# LOAD MISSION path: Down once from default NEW MISSION (field 1)
+# lands on LOAD MISSION (field 2). Return enters RAP_LoadWin.
+wait 60
+dump 01_menu
+key Down
+wait 30
+dump 02_load_highlighted
+key Return
+wait 300
+dump 03_load_screen
+quit

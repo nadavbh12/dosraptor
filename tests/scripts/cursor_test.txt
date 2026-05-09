@@ -1,0 +1,11 @@
+# Place cursor in empty top-left area of menu where any sprite is obvious.
+wait 60
+mouse 10,10
+key Down
+wait 30
+dump 01_top_left
+mouse 280,180
+key Up
+wait 30
+dump 02_bottom_right
+quit

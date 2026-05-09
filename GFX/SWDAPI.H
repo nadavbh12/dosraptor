@@ -1,3 +1,4 @@
+#include <stdint.h>
 /****************************************************************************
 * SWDapi  - windowing routines
 *----------------------------------------------------------------------------
@@ -128,7 +129,12 @@ typedef struct
    INT      lx             ;  // WIDTH IN PIXELS
    INT      ly             ;  // HEIGHT IN PIXELS
    DWORD    txtoff         ;  // OFFSET TO TEXT DATA ( BYTES )
-   BYTE  *  sptr           ;  // SEG POINTER TO SAVE INFO
+   /* PORT: was `BYTE *sptr`, but on 64-bit a real pointer is 8 bytes,
+    * which slid every field after slot #0 by 4 bytes against the
+    * on-disk asset (no menu buttons, garbage metadata). 4-byte
+    * placeholder keeps struct layout byte-identical to 32-bit Watcom.
+    * See swdapi.c — save-under is no-op on the port. */
+   uint32_t sptr           ;
 } SFIELD;
   
 typedef struct
@@ -529,4 +535,3 @@ INT * y,                   // OUTPUT: y
 INT * lx,                  // OUTPUT: width
 INT * ly                   // OUTPUT: height
 );
-

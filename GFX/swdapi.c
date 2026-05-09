@@ -19,7 +19,8 @@ PRIVATE BOOL      kbactive       = FALSE;
 PRIVATE INT       prev_window    = EMPTY;
 PRIVATE INT       master_window  = EMPTY;
 PRIVATE INT       active_window  = EMPTY;
-PRIVATE INT       active_field   = EMPTY;
+/* Was PRIVATE (= static), but swdapi.h declares the same name extern. */
+INT       active_field   = EMPTY;
 PRIVATE SFIELD *  lastfld        = NUL;
 PRIVATE BOOL      highlight_flag = FALSE;
 PRIVATE SWD_WIN   g_wins  [ MAX_WINDOWS ];
@@ -302,7 +303,12 @@ SFIELD * curfld            // INPUT : pointer to field data
 {
    VOID *      fld_font    = GLB_GetItem ( curfld->fontid );
    CHAR *      fld_text    = ( ( CHAR * )curfld ) + curfld->txtoff;
-   INT         fontheight  = ((FONT *)fld_font)->height;
+   /* Port: fontid can be EMPTY (no font assigned) — original DOS deref'd
+    * NULL and read garbage from real-mode address 0. Earlier we bailed
+    * the whole function on NULL font, but that skipped the button pic
+    * too — main menu had no visible buttons. Now we only short-circuit
+    * the text-positioning math; the pic + state rendering still runs. */
+   INT         fontheight  = fld_font ? ((FONT *)fld_font)->height : 0;
    INT         fld_x       = curfld->x + curwin->x;
    INT         fld_y       = curfld->y + curwin->y;
    INT         curpos;
@@ -314,10 +320,19 @@ SFIELD * curfld            // INPUT : pointer to field data
    GFX_PIC *   h;
    BOOL        draw_style = FALSE;
    BOOL        draw_text = FALSE;
-  
-   rval     = GFX_StrPixelLen ( fld_font, fld_text, strlen ( fld_text ) );
-   text_x   = ( ( curfld->lx - rval ) >> 1 ) + fld_x;
-   text_y   = ( ( curfld->ly - ( ( FONT* )fld_font )->height ) >> 1 ) + fld_y;
+
+   if ( fld_font )
+   {
+      rval     = GFX_StrPixelLen ( fld_font, fld_text, strlen ( fld_text ) );
+      text_x   = ( ( curfld->lx - rval ) >> 1 ) + fld_x;
+      text_y   = ( ( curfld->ly - fontheight ) >> 1 ) + fld_y;
+   }
+   else
+   {
+      rval = 0;
+      text_x = fld_x;
+      text_y = fld_y;
+   }
   
    if ( curfld->bstatus == DOWN && curfld->opt != FLD_DRAGBAR )
    {
@@ -325,8 +340,10 @@ SFIELD * curfld            // INPUT : pointer to field data
       text_y++;
    }
   
-   if ( curfld->saveflag && curfld->sptr )
-      GFX_PutImage ( curfld->sptr, fld_x, fld_y, FALSE );
+   /* Original: `if (curfld->saveflag && curfld->sptr) GFX_PutImage(...)`
+    * — restored a saved background under transient elements. The port
+    * redraws the full frame each tick, so save-under is unnecessary;
+    * sptr is also no longer a usable pointer (see SWDAPI.H note). */
   
    if ( curfld->picflag != FILL && curfld->picflag != INVISABLE )
    {
@@ -527,16 +544,22 @@ SFIELD * curfld            // INPUT : pointer to field data
       else
          h = NUL;
 
+      /* PORT: original DOS code had `if ( h->type == GSPRITE && h )` —
+       * `h->type` is dereferenced BEFORE the `&& h` NULL check. Real-mode
+       * DOS read from segment 0 (garbage but no fault); on macOS arm64
+       * it segfaults. Reordered to short-circuit on NULL first.
+       * Triggered by F1/ORDER_INFO → HELP_Win → SWD_PutField on a
+       * FLD_BUTTON whose picflag is FILL (h is set to NUL above). */
       if ( curfld->bstatus == DOWN )
       {
-         if ( h->type == GSPRITE && h )
+         if ( h && h->type == GSPRITE )
             GFX_ShadeShape ( DARK, (BYTE*)h, fld_x, fld_y );
          else
             GFX_ShadeArea ( DARK, fld_x, fld_y, curfld->lx, curfld->ly );
       }
       else if ( curfld->bstatus == UP )
       {
-         if ( h->type == GSPRITE && h )
+         if ( h && h->type == GSPRITE )
             GFX_ShadeShape ( LIGHT, (BYTE*)h, fld_x, fld_y );
          else
             GFX_ShadeArea ( LIGHT, fld_x, fld_y, curfld->lx, curfld->ly );
@@ -545,7 +568,7 @@ SFIELD * curfld            // INPUT : pointer to field data
   
    PutField_Exit:
   
-   if ( draw_text && curfld->maxchars > 1 )
+   if ( draw_text && fld_font && curfld->maxchars > 1 )
       GFX_Print ( text_x, text_y, fld_text, fld_font, curfld->fontbasecolor );
   
    return;
@@ -798,7 +821,11 @@ VOID
   
    for ( loop = 0; loop < MAX_WINDOWS; loop++ )
    {
-      if ( g_wins[pos].flag && g_wins[pos].win->display )
+      /* PORT: also gate on win!=NULL — flag can be TRUE while win is
+       * NULL during transitions (e.g. immediately after the master
+       * window's SWD_DestroyWindow runs). DOS happened to dereference
+       * harmless low-memory; we segfault. */
+      if ( g_wins[pos].flag && g_wins[pos].win && g_wins[pos].win->display )
       {
          active_window = pos;
          active_field = g_wins[pos].win->firstfld;
@@ -1208,9 +1235,12 @@ VOID * inptr               // INPUT : pointer to window data
          fx = header->x + fld->x;
          fy = header->y + fld->y;
   
-         if ( fld->saveflag && fld->sptr )
+         /* PORT: save-under disabled (sptr is now a 4-byte placeholder,
+          * see SWDAPI.H). The frame is fully redrawn each tick so we
+          * don't need to capture a backup. */
+         if ( 0 && fld->saveflag && fld->sptr )
          {
-            picdata = ( BYTE * ) fld->sptr;
+            picdata = ( BYTE * ) (uintptr_t) fld->sptr;
             pich = ( GFX_PIC * )picdata;
             picdata += sizeof ( GFX_PIC );
             pich->width = (short)fld->lx;
@@ -1522,19 +1552,11 @@ DWORD   handle                // INPUT : GLB Item Number
                   GLB_LockItem ( curfld->item );
                }
   
-               curfld->sptr = NUL;
-               if ( curfld->saveflag )
-               {
-                  pic_size = ( curfld->lx * curfld->ly ) + sizeof ( GFX_PIC );
-                  if ( pic_size < 0 || pic_size > 64000 )
-                  {
-                     EXIT_Error ("SWD Error: pic save to big...");
-                  }
-  
-                  curfld->sptr = (BYTE *) malloc ( pic_size );
-                  if ( !curfld->sptr )
-                     EXIT_Error ("SWD Error: out of memory");
-               }
+               curfld->sptr = 0;
+               /* PORT: save-under is disabled (see SWDAPI.H note); we
+                * skip the per-field malloc to avoid storing a 64-bit
+                * pointer in a 32-bit slot. */
+               (void)pic_size;
             }
          }
          goto SWD_InitWindow_Exit;
@@ -1774,8 +1796,7 @@ INT handle                 // INPUT : handle of window
       if ( curfld->fontid != EMPTY )
          GLB_FreeItem ( curfld->fontid );
 
-      if ( curfld->saveflag && curfld->sptr != NUL )
-         free ( curfld->sptr );
+      /* PORT: matching the SWD_InitWindow change — no malloc, no free. */
    }
   
    if ( curwin->item != EMPTY )
@@ -1793,11 +1814,26 @@ INT handle                 // INPUT : handle of window
    lastfld = NUL;
 
    SWD_GetNextWindow();
-  
-   windat = ( BYTE * )g_wins [ active_window ].win;
-   curwin = ( SWIN * )windat;
 
-//   if ( windat )
+   /* PORT: SWD_GetNextWindow leaves active_window at EMPTY when no other
+    * window is left; reading g_wins[-1].win is buffer underflow that
+    * segfaults on arm64. Guard explicitly. */
+   if ( active_window == EMPTY )
+   {
+      windat = 0;
+      curwin = 0;
+   }
+   else
+   {
+      windat = ( BYTE * )g_wins [ active_window ].win;
+      curwin = ( SWIN * )windat;
+   }
+
+   /* PORT: re-enabled this NULL guard. After destroying the master
+    * window, active_window is often EMPTY and g_wins[].win is NULL —
+    * the original DOS code happened to dereference into harmless DOS
+    * low-memory; on macOS arm64 it segfaults at offset 0x6c. */
+   if ( windat )
    {
    	  	curfld = ( SFIELD * ) ( windat + curwin->fldofs );
 
@@ -2068,11 +2104,16 @@ SWD_DLG * swd_dlg          // OUTPUT: pointer to info structure
    INT         loop;
    BOOL        update;
   
+   /* PORT: DOS wrapped this read-and-clear in _disable()/_enable() to
+    * block the keyboard ISR. In the port the macros are no-ops and the
+    * writer is the playthrough timer thread; a non-atomic load+store
+    * loses a concurrent timer-thread write (SWD_Dialog hot-spins at
+    * millions of calls/sec, so the race fires reliably). Atomic
+    * exchange makes the read-and-clear a single op. */
    _disable();
    update = FALSE;
-   g_key = KBD_LASTSCAN;
+   g_key = __atomic_exchange_n(&lastscan, SC_NONE, __ATOMIC_ACQ_REL);
    g_ascii = KBD_LASTASCII;
-   KBD_LASTSCAN = SC_NONE;
    KBD_LASTASCII = SC_NONE;
    _enable();
   
@@ -2854,4 +2895,4 @@ INT * ly                   // OUTPUT: height
    return ( curfld->lx );
 }
   
-
+

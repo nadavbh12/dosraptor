@@ -179,7 +179,9 @@ SND_InitSound (
 VOID
 );
 
-extern CONTROL control;
+/* removed: input.h declares `extern ITYPE control;`. The CONTROL enum
+ * (C_KEY/C_MOUSE/C_JOYSTICK) had different members from ITYPE; the
+ * variable is defined and read as ITYPE everywhere it matters. */
 extern      INT   music_volume;
 extern      INT   fx_volume;
 extern      BOOL  fx_flag;
@@ -214,4 +216,3 @@ extern      BOOL  dig_flag;
 
 
 
-

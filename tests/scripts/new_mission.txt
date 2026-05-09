@@ -1,0 +1,34 @@
+# NEW MISSION → registration → enter pilot name + callsign → submit
+wait 60
+dump 01_menu
+key Return
+wait 100
+dump 02_registration_blank
+# Type "TEST" as pilot name
+key T
+wait 5
+key E
+wait 5
+key S
+wait 5
+key T
+wait 5
+dump 03_name_typed
+# Submit name -> jumps to callsign field
+key Return
+wait 30
+# Type "T1" callsign
+key T
+wait 5
+key 1
+wait 5
+dump 04_callsign_typed
+# Submit
+key Return
+wait 600
+dump 05_difficulty_select
+# Select default highlighted difficulty (NORMAL/VETERAN)
+key Return
+wait 1200
+dump 06_post_difficulty
+quit

@@ -1,0 +1,33 @@
+# Drive demo to completion. The demo plays a full mission (BRAVO SECTOR
+# WAVE 3) which is a few minutes of recorded play, then returns to menu.
+# Sample frames at 5s intervals throughout. If the run exits cleanly,
+# the entire demo loop is functional.
+
+wait 60
+dump 01_menu
+key D
+wait 80
+dump 02_briefing
+key Escape
+wait 60
+dump 03_in_game
+
+# 30 frames per second roughly — probe game over time.
+wait 350
+dump 04_05s
+wait 700
+dump 05_15s
+wait 700
+dump 06_25s
+wait 700
+dump 07_35s
+wait 700
+dump 08_45s
+wait 700
+dump 09_55s
+wait 700
+dump 10_65s
+wait 700
+dump 11_75s
+
+quit

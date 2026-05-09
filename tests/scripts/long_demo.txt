@@ -1,0 +1,27 @@
+# Long demo run — drive into the game and let it play 30s of demo flight.
+# Catches mid-mission bugs that shorter runs would miss.
+
+wait 60
+dump 01_menu
+key D
+wait 80
+dump 02_briefing
+key Escape
+wait 60
+dump 03_in_game_start
+
+# Sample every 5s
+wait 350
+dump 04_5s
+wait 350
+dump 05_10s
+wait 350
+dump 06_15s
+wait 350
+dump 07_20s
+wait 350
+dump 08_25s
+wait 350
+dump 09_30s
+
+quit

@@ -1,0 +1,19 @@
+# Menu → demo → in-game playthrough. Verifies the whole input plumbing
+# end-to-end: SDL pump → kbd injection → SWD_Dialog → WIN_MainMenu → demo
+# fade-out → WIN_MainAuto → level loading → flight rendering.
+
+wait 60
+dump 01_menu
+key D
+wait 80
+dump 02_briefing
+key Escape
+wait 60
+dump 03_in_game
+wait 140
+dump 04_in_game_2s
+wait 140
+dump 05_in_game_4s
+wait 140
+dump 06_in_game_6s
+quit

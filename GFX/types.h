@@ -28,7 +28,11 @@ typedef unsigned short USHORT;
 typedef int	INT;
 typedef unsigned int UINT;
 
-int random(int);
+// Watcom needed an explicit `int random(int)` prototype here so the
+// macro below would compile against its libc, which had no random().
+// macOS libc declares `long random(void)` and the prototype clashes —
+// the macro overrides every call site we care about, so the prototype
+// is not needed on this platform.
 #define random( x ) ( rand() % x )
 
 #endif

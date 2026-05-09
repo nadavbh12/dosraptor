@@ -1,0 +1,45 @@
+# Drive into Mission 1 then DON'T move — player should get shot by
+# enemies, triggering death/respawn or game-over flow. Lets us verify
+# the death sequence renders correctly.
+wait 60
+key Return
+wait 100
+key T
+wait 5
+key E
+wait 5
+key S
+wait 5
+key T
+wait 5
+key Return
+wait 30
+key T
+wait 5
+key 1
+wait 5
+key Return
+wait 400
+key Return
+wait 600
+key Down
+wait 100
+key Return
+wait 700
+key Return
+wait 700
+dump 01_in_game_start
+# Don't hold up. Let enemies hit player.
+wait 700
+dump 02_5s_idle
+wait 700
+dump 03_10s_idle
+wait 1400
+dump 04_20s_idle
+wait 1400
+dump 05_40s_idle
+wait 1400
+dump 06_60s_idle
+wait 1400
+dump 07_80s_idle
+quit

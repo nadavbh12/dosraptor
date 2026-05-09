@@ -1,0 +1,22 @@
+# Build outputs
+build/
+*.o
+*.obj
+
+# IDE / tooling caches
+.cache/
+.vscode/
+.idea/
+compile_commands.json
+
+# macOS
+.DS_Store
+
+# Game data — commercial Apogee shareware; not redistributable
+FILE*.GLB
+
+# SoundFont — large binary, drop in next to binary at runtime
+*.sf2
+
+# Player save files (runtime state)
+CHAR*.FIL

@@ -28,7 +28,10 @@ VOID
    {
       stable [ loop ] = stmem [ loop ];
 
-      stable [ loop ] = (BYTE *)(((INT)stable[loop]+255)&~0xff);
+      /* Watcom INT was 32-bit on the original target; on macOS arm64
+       * (INT)ptr truncates the upper 32 bits and the deref later
+       * segfaults. uintptr_t preserves all 64 bits. */
+      stable [ loop ] = (BYTE *)(((uintptr_t)stable[loop]+255)&~(uintptr_t)0xff);
 
       GFX_MakeLightTable ( palette, stable[loop], (MAX_SHADES-loop)*2 );
    }
@@ -145,4 +148,3 @@ INT frame                  // INPUT : frame
    }
 }
 
-

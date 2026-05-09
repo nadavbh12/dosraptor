@@ -26,9 +26,10 @@
 #define MUS_PERCUSSION_CHAN 15
 
 typedef unsigned char byte;
-#ifndef __cplusplus
-typedef enum {false, true} bool;
-#endif
+/* Original wrote `typedef enum {false, true} bool;` here, but clang's
+ * stdbool.h (used by callers via mus2mid.h on the port) already defines
+ * bool/true/false as macros. Drop the local typedef. */
+#include <stdbool.h>
 
 // MUS event codes
 typedef enum

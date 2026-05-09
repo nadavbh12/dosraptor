@@ -1416,11 +1416,11 @@ VOID
   
    SWD_SetWindowPtr ( window );
    PTR_DrawCursor ( TRUE );
-  
+
    mainloop:
-  
+
    SWD_Dialog ( &dlg );
-  
+
    if ( KBD_Key ( SC_X ) && KBD_Key ( SC_ALT ) )
       WIN_AskExit();
 
@@ -1930,7 +1930,16 @@ BOOL  startflag
    }
 
    local_cnt = FRAME_COUNT;
-   while ( local_cnt == FRAME_COUNT );
+   {
+      /* PORT: pump SDL events while we wait for the next 70 Hz tick. The
+       * original DOS code relied on the keyboard ISR firing independently;
+       * we don't have one — SDL events only flow when SDL_PollEvent is
+       * called, and the menu's main loop only presents on change. Without
+       * this pump, real keystrokes never reach kbd_sdl_handle_keydown
+       * during the menu spin. */
+      extern void gfx_sdl_pump_events_only(void);
+      while ( local_cnt == FRAME_COUNT ) gfx_sdl_pump_events_only();
+   }
 
    d_count++;
 
@@ -1984,7 +1993,13 @@ VOID
    PTR_DrawCursor ( FALSE );
    SWD_ShowAllWindows();
    GFX_DisplayUpdate();
-  
+
+   /* Port test hook: RAPTOR_TEST=menu dumps frame hash + exits here. */
+   { extern void raptor_test_menu_checkpoint(void); raptor_test_menu_checkpoint(); }
+   /* Playthrough harness: arm the script now that the menu is up and
+    * KBD_Clear() has already run for this menu instance. */
+   { extern void raptor_playthrough_menu_ready(void); raptor_playthrough_menu_ready(); }
+
    if ( ingameflag )
       SND_PlaySong ( RINTRO_MUS, TRUE, TRUE );
    else
@@ -2119,7 +2134,7 @@ VOID
    }
 
    goto mainloop;
-  
+
    menu_exit:
   
    PTR_DrawCursor ( FALSE );
@@ -2138,4 +2153,3 @@ VOID
    return;
 }
 
-

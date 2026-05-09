@@ -1,0 +1,46 @@
+# Save/load round trip:
+# 1. New mission → register → difficulty → hangar
+# 2. F2 in hangar → Save dialog
+# 3. Y to confirm
+# 4. Esc out → main menu
+# 5. Down → LOAD MISSION → should show pilot list (not "No Pilots")
+wait 60
+key Return
+wait 100
+key T
+wait 5
+key E
+wait 5
+key S
+wait 5
+key T
+wait 5
+key Return
+wait 30
+key T
+wait 5
+key 1
+wait 5
+key Return
+wait 400
+key Return
+wait 600
+dump 01_hangar
+key F2
+wait 200
+dump 02_save_dialog
+# WIN_AskBool default-highlights YES. Return on it confirms.
+key Return
+wait 200
+dump 03_after_save
+# Now Esc out to main menu
+key Escape
+wait 400
+dump 04_menu_after_save
+# Down to LOAD MISSION
+key Down
+wait 30
+key Return
+wait 300
+dump 05_load_screen
+quit

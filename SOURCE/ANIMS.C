@@ -138,7 +138,7 @@ INT
 ANIMS_Register (
    DWORD item,             // INPUT : lumpnum of first frame
    INT   numframes,        // INPUT : number of frames
-   GFLAG groundflag,       // INPUT : on the ground = TRUE
+   INT   groundflag,       // INPUT : GFLAG (was GFLAG; INT for header compat)
    BOOL  playerflag,       // INPUT : follow player movements
    BOOL  transparent,      // INPUT : Transparent ( LIGHT )
    ANIM_DIR adir           // INPUT : Anim Direction
@@ -493,4 +493,3 @@ VOID
          GFX_PutSprite ( pic, cur->dx, cur->dy );
    }
 }
-

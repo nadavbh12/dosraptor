@@ -671,4 +671,3 @@ extern   INT      G3D_viewy    ;       // user view y pos
 extern   INT      G3D_viewz    ;       // user view z pos
 
 #endif
-

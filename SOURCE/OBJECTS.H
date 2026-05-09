@@ -130,7 +130,7 @@ OBJ * inobj                // INPUT : OBJ type
 /***************************************************************************
 OBJS_Add () - Adds OBJ ( type ) to players possesions
  ***************************************************************************/
-BOOL
+BUYSTUFF                   // header used to say BOOL, but .C returns BUYSTUFF
 OBJS_Add (
 OBJ_TYPE type              //INPUT : OBJ type
 );
@@ -162,7 +162,7 @@ OBJ_TYPE type              //INPUT : OBJ type
 /***************************************************************************
 OBJS_Buy () - Add Amount from TYPE that is equiped ( BUY )
  ***************************************************************************/
-BOOL                       // RETURN: TRUE = worked, FALSE = didnot
+BUYSTUFF                   // header used to say BOOL, but .C returns BUYSTUFF
 OBJS_Buy (
 OBJ_TYPE type              //INPUT : OBJ type
 );
@@ -297,4 +297,3 @@ OBJ_TYPE type              // INPUT : OBJ type
 );
 
 #endif
-

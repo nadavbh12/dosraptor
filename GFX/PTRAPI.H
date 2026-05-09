@@ -29,15 +29,18 @@ typedef enum
    P_JOYSTICK
 }PTRTYPE;
   
-#define JOY_X        ((volatile)cur_mx)
-#define JOY_Y        ((volatile)cur_my)
-#define PTR_X        ((volatile)cur_mx)
-#define PTR_Y        ((volatile)cur_my)
-#define PTR_B1       ((volatile)mouseb1)
-#define PTR_B2       ((volatile)mouseb2)
-#define PTR_B3       ((volatile)mouseb3)
-#define PTR_TM1      ((volatile)joy2b1)
-#define PTR_TM2      ((volatile)joy2b2)
+// Watcom accepted `(volatile)x` as a "force volatile read" cast; standard
+// C only allows volatile as a qualifier on a target type, so the
+// equivalent portable form is *(volatile int *)&x.
+#define JOY_X        (*(volatile INT *)&cur_mx)
+#define JOY_Y        (*(volatile INT *)&cur_my)
+#define PTR_X        (*(volatile INT *)&cur_mx)
+#define PTR_Y        (*(volatile INT *)&cur_my)
+#define PTR_B1       (*(volatile INT *)&mouseb1)
+#define PTR_B2       (*(volatile INT *)&mouseb2)
+#define PTR_B3       (*(volatile INT *)&mouseb3)
+#define PTR_TM1      (*(volatile INT *)&joy2b1)
+#define PTR_TM2      (*(volatile INT *)&joy2b2)
 #define PTR_PRESENT  (mousepresent + joypresent)
   
 extern   BOOL     mouse_b1_ack    ;
@@ -218,4 +221,3 @@ VOID
 );
 
 #endif
-

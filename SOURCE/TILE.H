@@ -107,7 +107,7 @@ VOID
 /***************************************************************************
 TILE_IsHit () - Checks to see if a shot hits an explodable tile
  ***************************************************************************/
-T_HIT                      // RETURNS : see T_HIT in tile.h
+BOOL                       // RETURNS : TRUE = Tile Hit (was T_HIT in header)
 TILE_IsHit (
 INT damage,                // INPUT : damage to tile
 INT x,                     // INOUT : x screen pos, out tile x
@@ -152,4 +152,3 @@ extern BOOL    scroll_flag;
 extern INT     g_mapleft;
 
 #endif
-

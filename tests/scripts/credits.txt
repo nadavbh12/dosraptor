@@ -1,0 +1,20 @@
+# CREDITS path: Down x4 to highlight CREDITS, Return to enter, wait
+# through the fade-in, dump, then key to exit.
+wait 60
+dump 01_menu_initial
+key Down
+wait 5
+key Down
+wait 5
+key Down
+wait 5
+key Down
+wait 5
+dump 02_credits_highlighted
+key Return
+wait 200
+dump 03_credits_screen
+key Return
+wait 100
+dump 04_back_to_menu
+quit

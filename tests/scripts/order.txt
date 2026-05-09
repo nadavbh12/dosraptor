@@ -1,0 +1,14 @@
+# Drive to ORDER INFO via Down x3 + Return.
+wait 60
+dump 01_menu
+key Down
+wait 5
+key Down
+wait 5
+key Down
+wait 5
+dump 02_order_highlighted
+key Return
+wait 100
+dump 03_order_screen
+quit

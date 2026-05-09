@@ -131,7 +131,8 @@ VOID
 )
 {
    sdtable = sdtablemem;
-   sdtable = (BYTE *)(((INT)sdtable+255)&~0xff);
+   /* INT->uintptr_t: 64-bit safe (see comment in FLAME.C). */
+   sdtable = (BYTE *)(((uintptr_t)sdtable+255)&~(uintptr_t)0xff);
 
    GFX_3D_SetView ( 160, 100, 1000 );
 }
@@ -239,4 +240,3 @@ VOID
 
 }
 
-

@@ -10,4 +10,3 @@
                GFX_DisplayUpdate();
                GFX_FadeIn ( palette, 64 );
                PTR_DrawCursor ( TRUE );
-

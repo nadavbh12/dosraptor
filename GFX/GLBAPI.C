@@ -21,8 +21,8 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <io.h>
-#include <sys\types.h>
-#include <sys\stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <ctype.h>
 
 // #include <windows.h>
@@ -455,7 +455,16 @@ FI_MODE	mode
   
    if ( handle == ~0 )
 	{
-      EXIT_Error ( "GLB_FetchItem: empty handle." );
+      /* Port note: original called EXIT_Error which terminates the
+       * process. We log and return NULL instead so callers that pass
+       * EMPTY by mistake don't kill the binary; the actual deref will
+       * surface in the crash backtrace, which is far more useful than
+       * a one-line error string. */
+      static int empty_handle_warned = 0;
+      if (!empty_handle_warned) {
+         fprintf(stderr, "[port] GLB_FetchItem: empty handle (suppressing further warnings)\n");
+         empty_handle_warned = 1;
+      }
       return NULL;
 	}
 
@@ -857,4 +866,3 @@ DWORD length               // INPUT : length of buffer
    }
    close (handle);
 }
-

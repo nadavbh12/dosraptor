@@ -157,8 +157,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_ALL;
 
    // == PLASMA_GUNS =====================================
@@ -185,8 +188,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_AIR;
   
    // == MICRO_MISSLE =====================================
@@ -213,8 +219,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_GRALL;
   
    // == DUMB_MISSLE =====================================
@@ -242,8 +251,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_ALL;
   
    // == MINI_GUN =====================================
@@ -271,8 +283,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_GRALL;
   
    // == LASER TURRET =====================================
@@ -300,8 +315,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_ALL;
   
    // == MISSLE_PODS =====================================
@@ -329,8 +347,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_AIR;
   
    // == AIR TO AIR =====================================
@@ -358,8 +379,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_AIR;
   
    // == AIR TO GROUND =====================================
@@ -387,8 +411,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_GROUND;
 
    // == GROUND BOMB =====================================
@@ -416,8 +443,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_GTILE;
 
    // == ENERGY GRAB =====================================
@@ -445,8 +475,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_SUCK;
   
    // == MEGA BOMB =====================================
@@ -475,8 +508,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_ALL;
   
    // == PULSE CANNON =====================================
@@ -505,8 +541,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_ALL;
   
    // == FORWARD LASER =====================================
@@ -535,8 +574,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_AIR;
   
    // == DEATH RAY =====================================
@@ -565,8 +607,11 @@ VOID
       slib->pic[i] = GLB_LockItem ( item );
    }
    slib->h           = ( GFX_PIC * )slib->pic [ 0 ];
-   slib->hlx         = slib->h->width>>1;
-   slib->hly         = slib->h->height>>1;
+   /* Original DOS deref'd a NULL `slib->h` for entries with numframes=0
+    * (e.g. S_TURRET). On DOS that read garbage from real-mode address 0;
+    * on macOS it traps. Treat a NULL pic[0] as a 0x0 placeholder. */
+   slib->hlx         = slib->h ? slib->h->width  >> 1 : 0;
+   slib->hly         = slib->h ? slib->h->height >> 1 : 0;
    slib->ht          = S_GRALL;
 }
   
@@ -1281,4 +1326,3 @@ VOID
 }
   
   
-

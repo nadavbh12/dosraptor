@@ -187,29 +187,28 @@ BYTE * palette,
 INT start_pal
 )
 {
-   volatile INT num = 0;
+   /* Original DOS path wrote 6-bit RGB triples to VGA DAC ports
+    * 0x3C8/0x3C9, optionally synced to vertical retrace via 0x3DA. The
+    * SDL renderer doesn't expose a hardware palette, so we feed an
+    * indexed-to-ARGB LUT in port/platform/gfx_sdl.c instead. The retrace
+    * spin and outp writes are gone (the latter are no-ops via the shim,
+    * but reading them back made GFX_GetPalette return zeros — also
+    * patched below to read from g_curpal). */
+   extern void gfx_sdl_set_palette(const unsigned char *pal, int start, int count);
+   extern unsigned char g_curpal_cache[768];
 
-   palette += ( start_pal * 3 );
-
-   if ( retraceflag )
+   if (start_pal < 0)   start_pal = 0;
+   if (start_pal > 255) return;
    {
-      retrace1:
-         num = inp ( 0x3DA );
-         if ( num & 8 ) goto retrace1;
-      retrace2:
-         num = inp ( 0x3DA );
-         if ( !( num & 8 ) ) goto retrace2;
-   }
-
-   outp ( 0x3C8, start_pal );
-
-   start_pal = ( 256 - start_pal ) * 3;
-
-   while ( start_pal-- )
-   {
-      outp ( 0x3C9, *palette++ );
+      INT count = 256 - start_pal;
+      memcpy(g_curpal_cache + start_pal * 3, palette + start_pal * 3, count * 3);
+      gfx_sdl_set_palette(palette + start_pal * 3, start_pal, count);
    }
 }
+
+/* Cache of the most-recently-set 6-bit DAC values, so GFX_GetPalette can
+ * return them without going through the (no-op) inp(0x3C9) read. */
+unsigned char g_curpal_cache[768];
 
 /**************************************************************************
   GFX_InitSystem() - allocates buffers, makes tables, does not set vmode
@@ -221,32 +220,42 @@ VOID
 {
    CHAR * err = "GFX_Init() - DosMemAlloc";
    INT   loop;
-   DWORD segment;
 
-   if ( _dpmi_dosalloc ( 4000, &segment ) ) EXIT_Error(err);
-   displaybuffer = ( BYTE *)( segment<<4 );
+   /* Original DOS code:
+    *   _dpmi_dosalloc(4000, &segment); displaybuffer = (BYTE *)(segment<<4);
+    * — that segment-trick depends on the buffer fitting in the low 32-bit
+    * address space, which macOS arm64 won't reliably grant. Direct
+    * aligned_alloc is the same shape (paragraph-aligned, 64000 bytes). */
+   displaybuffer = (BYTE *) aligned_alloc(16, 64000);
+   if (!displaybuffer) EXIT_Error(err);
 
    _dpmi_lockregion( displaybuffer, 64000 );
    memset ( displaybuffer, 0, 64000 );
-  
+
 	tsm_id = TSM_NewService( GFX_TimeFrameRate, 70, 255, 0 );
 
    for ( loop = 0; loop < SCREENHEIGHT; loop++ )
       ylookup[loop] = SCREENWIDTH * loop;
 
-   if ( _dpmi_dosalloc ( 32, &segment ) ) EXIT_Error(err);
-   ltable = ( BYTE *)( segment<<4 );
-   ltable = (BYTE *)(((INT)ltable+255)&~0xff);
+   /* The original allocated 512 bytes and rounded the start to a 256-byte
+    * boundary for the (then-relevant) cache-line behavior of the asm
+    * blitters' table lookups; aligned_alloc(256, ...) hands back exactly
+    * that without the manual offset dance. */
+   ltable = (BYTE *) aligned_alloc(256, 256);
+   if (!ltable) EXIT_Error(err);
+   dtable = (BYTE *) aligned_alloc(256, 256);
+   if (!dtable) EXIT_Error(err);
+   gtable = (BYTE *) aligned_alloc(256, 256);
+   if (!gtable) EXIT_Error(err);
 
-   if ( _dpmi_dosalloc ( 32, &segment ) ) EXIT_Error(err);
-   dtable = ( BYTE *)( segment<<4 );
-   dtable = (BYTE *)(((INT)dtable+255)&~0xff);
-
-   if ( _dpmi_dosalloc ( 32, &segment ) ) EXIT_Error(err);
-   gtable = ( BYTE *)( segment<<4 );
-   gtable = (BYTE *)(((INT)gtable+255)&~0xff);
-
-   displayscreen = (BYTE *)0xa0000;
+   /* DOS used the VGA memory window at A000:0000. SDL2 owns the actual
+    * framebuffer now, so displayscreen points at a host-side staging
+    * buffer that gfx_sdl.c uploads through pal_lut[256]. For M2 we just
+    * need a writable 64000-byte buffer so memset(displayscreen, ...) in
+    * GFX_EndSystem doesn't trap. */
+   displayscreen = (BYTE *) aligned_alloc(16, 64000);
+   if (!displayscreen) EXIT_Error(err);
+   memset(displayscreen, 0, 64000);
 }
 
 /**************************************************************************
@@ -288,12 +297,9 @@ GFX_GetPalette (
 BYTE * curpal              // OUTPUT : pointer to palette data
 )
 {
-   INT  loop;
-  
-   outp ( 0x3c7, 0 );
-
-   for ( loop = 0; loop < 768; loop ++ )
-      *curpal++ =  inp ( 0x3c9 );
+   /* Original read 768 bytes from VGA DAC port 0x3C9. inp() is now a
+    * no-op, so we serve from the cache that GFX_SetPalette populates. */
+   memcpy(curpal, g_curpal_cache, 768);
 }
 
 /**************************************************************************
@@ -339,6 +345,10 @@ GFX_FadeOut (
       }
 
       GFX_SetPalette ( pal2, 0 );
+      /* Original DOS write to the VGA DAC was instantly visible; on our
+       * port the LUT update only takes effect at the next texture upload,
+       * so present each fade step or the user sees a single hard cut. */
+      GFX_DisplayScreen();
    }
 
    nptr = pal2;
@@ -350,7 +360,7 @@ GFX_FadeOut (
    }
 
    GFX_SetPalette ( pal2, 0 );
-
+   GFX_DisplayScreen();
 }
 
 /**************************************************************************
@@ -379,9 +389,13 @@ GFX_FadeIn (
       }
 
       GFX_SetPalette ( pal2, 0 );
+      /* See comment in GFX_FadeOut: present each step so the fade is
+       * actually visible (LUT update needs a texture upload to land). */
+      GFX_DisplayScreen();
    }
 
    GFX_SetPalette ( palette, 0 );
+   GFX_DisplayScreen();
 }
 
 /**************************************************************************
@@ -811,8 +825,8 @@ INT ly                     // INPUT : length of line
 {
    INT lx = 1;
    BYTE * outbuf;
-   BYTE * cur_table;
-  
+   BYTE * cur_table = 0;
+
    if ( ly < 1 ) return;
 
    if ( GFX_ClipLines ( ( BYTE ** ) 0, &x, &y, &lx, &ly ) )
@@ -833,9 +847,9 @@ INT ly                     // INPUT : length of line
       }
   
       GFX_MarkUpdate ( x, y, lx, ly );
-  
+
       outbuf = displaybuffer + x + ylookup[y];
-  
+
       while ( ly-- )
       {
          *outbuf = *( cur_table + *outbuf );
@@ -843,7 +857,7 @@ INT ly                     // INPUT : length of line
       }
    }
 }
-  
+
 /*************************************************************************
    GFX_HShadeLine () Shades a Horizontal Line
  *************************************************************************/
@@ -857,8 +871,8 @@ INT lx                     // INPUT : length of line
 {
    INT ly = 1;
    BYTE * outbuf;
-   BYTE * cur_table;
-  
+   BYTE * cur_table = 0;
+
    if ( lx < 1 ) return;
 
    if ( GFX_ClipLines ( ( BYTE ** ) 0, &x, &y, &lx, &ly ) )
@@ -1463,10 +1477,18 @@ VOID
    BYTE *         dest;
    BYTE *         outline;
    INT            rval;
-   INT            ox = x;
-   INT            oy = y;
-   INT            lx = h->width;
-   INT            ly = h->height;
+   INT            ox;
+   INT            oy;
+   INT            lx;
+   INT            ly;
+   /* Port: caller may pass a NULL pic when an SWD field references an
+    * asset that isn't present in the shareware GLB. The original DOS
+    * deref'd anyway and pulled garbage; on macOS that page-faults. */
+   if (!inmem) return;
+   ox = x;
+   oy = y;
+   lx = h->width;
+   ly = h->height;
   
    rval = GFX_ClipLines ( NUL, &ox, &oy, &lx, &ly );
    if ( !rval ) return;
@@ -1484,30 +1506,43 @@ VOID
          break;
   
       case 2:
-         ah = ( GFX_SPRITE * )inmem;
-
-         while ( ah->offset != EMPTY )
+      {
+         /* GFX_SPRITE records may be byte-packed at any alignment (the
+          * previous record's payload length can be odd). x86 didn't care;
+          * ARM64 SIGBUSes on misaligned int loads, so each field reads
+          * via memcpy. Also cap the walk in case a corrupt asset never
+          * hits the EMPTY sentinel — original deref'd-NULL on bad data. */
+         INT rec_x, rec_y, rec_offset, rec_length;
+         for (int iter = 0; iter < 4096; iter++)
          {
+            memcpy(&rec_x,      inmem + 0,  sizeof(INT));
+            memcpy(&rec_y,      inmem + 4,  sizeof(INT));
+            memcpy(&rec_offset, inmem + 8,  sizeof(INT));
+            memcpy(&rec_length, inmem + 12, sizeof(INT));
+            if ((unsigned)rec_offset == EMPTY) break;
+            /* Sanity: a single sprite run > 320 (one screen row) means
+             * the data is misinterpreted. Bail rather than copy garbage
+             * into displaybuffer. */
+            if (rec_length < 0 || rec_length > SCREENWIDTH) break;
             inmem += sizeof ( GFX_SPRITE );
-  
-            ox = ah->x + x;
-            oy = ah->y + y;
-  
+
+            ox = rec_x + x;
+            oy = rec_y + y;
+
             if ( oy > SCREENHEIGHT ) break;
 
-            lx = ah->length;
+            lx = rec_length;
             ly = 1;
 
             outline = inmem;
-  
+
             if ( GFX_ClipLines ( &outline, &ox, &oy, &lx, &ly ) )
                memcpy ( displaybuffer + ox + ylookup [ oy ], outline, lx );
-  
-            inmem += ah->length;
-  
-            ah = ( GFX_SPRITE * )inmem;
+
+            inmem += rec_length;
          }
          break;
+      }
    }
 }
 
@@ -1719,4 +1754,3 @@ BOOL see_thru              // INPUT : true = masked, false = put block
    }
   
 }
-

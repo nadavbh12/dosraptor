@@ -19,7 +19,7 @@ typedef enum
 #define BUT_3 ( buttons[2] )
 #define BUT_4 ( buttons[3] )
 
-extern BOOL    buttons[4];
+extern INT     buttons[4];   /* INPUT.C defines as INT, not BOOL */
 extern ITYPE   control;
 extern INT     demo_mode;
 extern INT     f_addx;
@@ -179,4 +179,3 @@ VOID
 );
 
 #endif
-

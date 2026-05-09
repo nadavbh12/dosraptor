@@ -1,0 +1,52 @@
+# Brute-force Mission 1: same proven path as mission_death (which T14
+# verifies reaches in-game), then hold Up to advance and LCtrl to fire.
+# Dump every ~30s for 4 minutes. Either Mission 1 completes (briefing
+# transition observable) or player dies (death overlay → menu).
+wait 60
+key Return
+wait 100
+key T
+wait 5
+key E
+wait 5
+key S
+wait 5
+key T
+wait 5
+key Return
+wait 30
+key T
+wait 5
+key 1
+wait 5
+key Return
+wait 400
+key Return
+wait 600
+key Down
+wait 100
+key Return
+wait 700
+key Return
+wait 700
+dump 01_in_game_start
+# Hold Up + LCtrl: forward motion + continuous fire
+down Up
+down LCtrl
+wait 2100   # 30s
+dump 02_30s
+wait 2100
+dump 03_60s
+wait 2100
+dump 04_90s
+wait 2100
+dump 05_120s
+wait 2100
+dump 06_150s
+wait 2100
+dump 07_180s
+wait 2100
+dump 08_210s
+wait 2100
+dump 09_240s
+quit

@@ -1,0 +1,47 @@
+# Drive into Mission 1 and actually fight: hold Up to advance, hold
+# LCtrl to fire weapons. Sample the score every few seconds — if the
+# score climbs, weapons + collision are working.
+wait 60
+key Return
+wait 100
+key T
+wait 5
+key E
+wait 5
+key S
+wait 5
+key T
+wait 5
+key Return
+wait 30
+key T
+wait 5
+key 1
+wait 5
+key Return
+wait 400
+key Return
+wait 600
+key Down
+wait 100
+key Return
+wait 700
+key Return
+wait 700
+dump 01_in_game_start
+# Fire weapons (SC_LCTRL = 0x1d) AND hold up to advance
+down LCtrl
+down Up
+wait 700
+dump 02_5s_firing
+wait 700
+dump 03_10s_firing
+wait 700
+dump 04_15s_firing
+wait 700
+dump 05_20s_firing
+wait 700
+dump 06_25s_firing
+wait 700
+dump 07_30s_firing
+quit

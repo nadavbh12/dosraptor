@@ -39,8 +39,8 @@
 #include <fcntl.h>
 #include <conio.h>
 #include <io.h>
-#include <sys\types.h>
-#include <sys\stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include <malloc.h>
 
@@ -229,43 +229,11 @@ InitScreen (
 VOID
 )
 {
-   union  REGS   regs;
-   BYTE * scradr = (BYTE *)0xB8000;
-   INT    loop;
-   BYTE   color;
-   INT    port = 0x3c8;
-   CHAR  *  msg = " RAPTOR: Call Of The Shadows V1.2                        (c)1994 Cygnus Studios";
-
-   regs.w.ax = 0x3;
-   int386(0x10,(const union REGS *) &regs, &regs);
-
-   regs.w.ax = 0x200;
-   regs.h.bh = 0;
-   regs.h.dl = 0;
-   regs.h.dh = 0;
-   int386(0x10,(const union REGS *) &regs, &regs);
-
-   color = 0;
-   color = ( 1<<4 ) + 14;
-
-   outp ( port, 1 );
-   port++;
-   outp ( port, 1 );
-   outp ( port, 5 );
-   outp ( port, 16 );
-
-   for ( loop =0; loop < 160; loop++ )
-   {
-      if ( ( loop & 1 ) )
-         *(scradr + loop) = color;
-      else
-      {
-         *(scradr + loop) = *msg;
-         msg++;
-      }
-   }
-
-   printf ("\n");
+   /* Original drew a yellow-on-blue banner in the VGA text-mode RAM at
+    * 0xB8000 before swapping to mode 13h. The literal address segfaults
+    * on macOS; the banner now goes to stdout. */
+   printf("\n RAPTOR: Call Of The Shadows V1.2"
+          "                        (c)1994 Cygnus Studios\n\n");
 }
 
 /*==========================================================================
@@ -276,13 +244,9 @@ ShutDown (
 INT   errcode
 )
 {
-   union    REGS   regs;
-   volatile BYTE * scradr = (VOID *)0xB8000;
-   volatile BYTE * mem;
-   volatile int    loop;
-   volatile int    cnt  = 0;
-   volatile int    i;
-
+   /* The original wrote a "thanks for playing" text screen to VGA RAM at
+    * 0xB8000 on clean exit. The literal-address writes are gone; we
+    * still tear down all subsystems. */
    if ( !errcode && !godmode )
       WIN_Order();
 
@@ -293,41 +257,6 @@ INT   errcode
    TSM_Remove();
 
    GFX_EndSystem();
-
-   if ( !errcode )
-   {
-      regs.w.ax = 0x200;
-      regs.h.bh = 0;
-      regs.h.dl = 0;
-      regs.h.dh = 22;
-      int386( 0x10, (const union REGS *) &regs, &regs);
-
-      #ifndef LCR_VERSION
-      if ( reg_flag )
-         mem = GLB_LockItem ( LASTSCR2_TXT );
-      else
-         mem = GLB_LockItem ( LASTSCR1_TXT );
-      #else
-         mem = GLB_LockItem ( LASTSCR3_TXT );
-      #endif
-
-      for ( loop = 0; loop < (4000-(160*2)); loop++ )
-      {
-         *scradr = *mem;
-         scradr++;
-         mem++;
-         for (i=0;i<5;i++)
-         {
-            cnt = cnt + (INT)mem / (INT)scradr - cnt;
-            cnt++;
-         }
-      }
-
-      if ( reg_flag )
-         GLB_FreeItem ( LASTSCR2_TXT );
-      else
-         GLB_FreeItem ( LASTSCR1_TXT );
-   }
 
    PTR_End();
    KBD_End();
@@ -1323,19 +1252,22 @@ VOID
       memsize = 0;
 
    // == GET lowmem =============================
-   while (_dpmi_dosalloc ( getmem, &segment ) && getmem > 2 )
-      getmem--;
-
-   lowmem = ( ( getmem - 1 ) * 16 );
-
-   if ( lowmem > 4096 && segment != 0 )
+   /* Original loop decremented `getmem` (paragraph count) until DOS
+    * conventional memory could satisfy the request. On the host we just
+    * allocate the full requested size; calloc handles the failure path. */
+   lowmem = getmem * 16;
+   g_lowmem = (BYTE *) calloc(lowmem, 1);
+   if ( g_lowmem != NUL )
    {
-      g_lowmem = ( BYTE * )( segment << 4 );
       VM_InitMemory ( g_lowmem, lowmem );
       printf ("Lowmem = %d\n", lowmem );
    }
    else
+   {
+      lowmem = 0;
       printf ("Lowmem = NONE\n" );
+   }
+   (void)segment;
 
    g_highmem = calloc ( memsize, 1 );
 
@@ -1467,7 +1399,7 @@ main ( INT argc, CHAR * argv[] )
 
    godmode = FALSE;
 
-   if ( strcmp ( ( CHAR *)var1, gdmodestr ) == 0 )
+   if ( var1 != NULL && strcmp ( ( CHAR *)var1, gdmodestr ) == 0 )
    {
       godmode = TRUE;
    }
@@ -1700,42 +1632,64 @@ main ( INT argc, CHAR * argv[] )
       numbers[loop] = GLB_LockItem ( item );
    }
 
-   FLAME_InitShades();
-   HELP_Init();
-   OBJS_Init();
-   TILE_Init();
-   SHOTS_Init();
-   ESHOT_Init();
-   BONUS_Init();
-   ANIMS_Init();
-   SND_Setup();
-  
+   FLAME_InitShades(); printf("[port] FLAME_InitShades ok\n"); fflush(stdout);
+   HELP_Init();        printf("[port] HELP_Init ok\n");        fflush(stdout);
+   OBJS_Init();        printf("[port] OBJS_Init ok\n");        fflush(stdout);
+   TILE_Init();        printf("[port] TILE_Init ok\n");        fflush(stdout);
+   SHOTS_Init();       printf("[port] SHOTS_Init ok\n");       fflush(stdout);
+   ESHOT_Init();       printf("[port] ESHOT_Init ok\n");       fflush(stdout);
+   BONUS_Init();       printf("[port] BONUS_Init ok\n");       fflush(stdout);
+   ANIMS_Init();       printf("[port] ANIMS_Init ok\n");       fflush(stdout);
+   SND_Setup();        printf("[port] SND_Setup ok\n");        fflush(stdout);
+
    GFX_SetPalRange ( 0, ROTPAL_START-1 );
+   printf("[port] GFX_InitVideo ...\n"); fflush(stdout);
    GFX_InitVideo ( palette );
+   printf("[port] GFX_InitVideo ok\n"); fflush(stdout);
    SHADOW_MakeShades();
+   printf("[port] SHADOW_MakeShades ok\n"); fflush(stdout);
 
    RAP_ClearPlayer();
+   printf("[port] RAP_ClearPlayer ok\n"); fflush(stdout);
 
    #ifdef TAIWAN_VERSION
       tai_flag = TRUE;
       INTRO_Taiwan();
    #endif
 
-   if ( !godmode )
-      INTRO_Credits();
+   {
+      /* Port: RAPTOR_SKIPINTRO env var bypasses the credits + main intro
+       * for fast dev iteration. Production runs play them normally. */
+      int skip_intro = (getenv("RAPTOR_SKIPINTRO") != NULL);
 
-   if ( demo_flag != DEMO_PLAYBACK )
-   {
-      SND_PlaySong ( RINTRO_MUS, TRUE, TRUE );
-      INTRO_PlayMain();
-      SND_PlaySong ( MAINMENU_MUS, TRUE, TRUE );
+      if ( !godmode && !skip_intro )
+      {
+         printf("[port] INTRO_Credits start\n"); fflush(stdout);
+         INTRO_Credits();
+         printf("[port] INTRO_Credits done\n"); fflush(stdout);
+      }
+
+      if ( demo_flag != DEMO_PLAYBACK )
+      {
+         if ( !skip_intro ) {
+            printf("[port] SND_PlaySong RINTRO_MUS\n"); fflush(stdout);
+            SND_PlaySong ( RINTRO_MUS, TRUE, TRUE );
+            printf("[port] INTRO_PlayMain start\n"); fflush(stdout);
+            INTRO_PlayMain();
+            printf("[port] INTRO_PlayMain done\n"); fflush(stdout);
+         }
+         SND_PlaySong ( MAINMENU_MUS, TRUE, TRUE );
+         printf("[port] reached main menu music cue\n"); fflush(stdout);
+      }
+      else if ( demo_flag == DEMO_PLAYBACK )
+      {
+         DEMO_LoadFile();
+         DEMO_Play ();
+      }
    }
-   else if ( demo_flag == DEMO_PLAYBACK )
-   {
-      DEMO_LoadFile();
-      DEMO_Play ();
-//      EXIT_Error ("Demo Play done");
-   }
+
+   /* Port test hook: RAPTOR_TEST=init dumps globals + exits here. */
+   { extern void raptor_test_init_checkpoint(void); raptor_test_init_checkpoint(); }
 
    cur_game     = 0;
    game_wave[0] = 0;
@@ -1748,11 +1702,13 @@ main ( INT argc, CHAR * argv[] )
 
    for (;;)
    {
+      printf("[port] WIN_MainMenu enter\n"); fflush(stdout);
       WIN_MainMenu();
+      printf("[port] WIN_MainMenu return -> WIN_MainLoop\n"); fflush(stdout);
       WIN_MainLoop();
+      printf("[port] WIN_MainLoop return\n"); fflush(stdout);
    }
 
 }
 
 
-

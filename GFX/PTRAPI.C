@@ -75,9 +75,20 @@ PRIVATE INT    dm_y           = 0;
 PRIVATE INT    hot_mx         = 0;
 PRIVATE INT    hot_my         = 0;
 PRIVATE BOOL   mouseonhold    = FALSE;
-PRIVATE BOOL   mouseaction    = TRUE;
+PUBLIC  BOOL   mouseaction    = TRUE;  /* PORT: was PRIVATE; ptr_sdl.c
+                                          pokes this from the SDL poll
+                                          path so the cursor keeps
+                                          redrawing without DOS's
+                                          INT 33h PTR_MouseHandler. */
 PRIVATE BOOL   mouse_erase    = FALSE;
-PRIVATE BOOL   not_in_update  = TRUE;
+/* PORT: was `BOOL not_in_update`; the busy-wait at line ~400 used
+ * `while ( !(volatile)not_in_update );` which casts the *value*, not the
+ * variable, so clang at -O1+ caches the read in a register and
+ * either spins forever or never spins. Declaring the variable volatile
+ * forces every access to re-read from memory. PTR_UpdateCursor flips
+ * this from a TSM callback on the main thread; we don't have a real
+ * race, but the optimizer can still nuke the loop without volatile. */
+PRIVATE volatile BOOL not_in_update = TRUE;
 PRIVATE VOID   (*cursorhook)(VOID)           = (VOID (*))0;
 PRIVATE VOID   (*checkbounds)(VOID)          = (VOID (*))0;
 
@@ -397,7 +408,10 @@ VOID (*update)(VOID)        // INPUT : pointer to function
       return;
    }
   
-   while ( !(volatile)not_in_update );
+   /* PORT: original cast `!(volatile)not_in_update` casts the value,
+    * not the variable — useless. The variable's declaration now carries
+    * volatile, so plain `!not_in_update` re-reads each iteration. */
+   while ( !not_in_update );
    not_in_update = FALSE;
    mouseonhold = TRUE;
   
@@ -680,11 +694,13 @@ PTRTYPE type                  // INPUT : Pointer Type to Use
 
    drawcursor = FALSE;
 
-   if ( _dpmi_dosalloc ( 16, &segment ) ) EXIT_Error(err);
-   cursorsave = ( BYTE *)( segment<<4 );
-
-   if ( _dpmi_dosalloc ( 16, &segment ) ) EXIT_Error(err);
-   cursorpic  = ( BYTE *)( segment<<4 );
+   /* Original DOS allocated 16 paragraphs (256 bytes) of conventional
+    * memory for the cursor save-under and the cursor pic. aligned_alloc
+    * gives us the same shape without the segment-shift contract. */
+   cursorsave = (BYTE *) aligned_alloc(16, 256);
+   if (!cursorsave) EXIT_Error(err);
+   cursorpic  = (BYTE *) aligned_alloc(16, 256);
+   if (!cursorpic)  EXIT_Error(err);
   
    joyactive = FALSE;
    mousepresent = FALSE;
@@ -704,7 +720,7 @@ PTRTYPE type                  // INPUT : Pointer Type to Use
       regs.w.ax = 0;
       int386(0x33, &regs, &regs);
   
-      if ( regs.w.ax == -1 )
+      if ( regs.w.ax == 0xFFFFu )    /* Watcom let this be `== -1`; clang folds it to false */
       {
          mousepresent = TRUE;
 
@@ -770,4 +786,4 @@ VOID
    int386( 0x33, ( const union REGS * ) &regs, &regs );
   
 }
-
+
