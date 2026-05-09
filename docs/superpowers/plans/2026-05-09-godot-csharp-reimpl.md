@@ -20,7 +20,7 @@
 |---|---|---|---|
 | 0 | Bootstrap `raptor-godot` repo, Godot project, CI scaffolding | `raptor-godot` | "Hello Godot" scene compiles + CI runs lint + xUnit empty pass |
 | 1 | Asset extractor tool in C | `dosraptor` | All 9 demos + sample sprites/levels extract to disk; spot-check renders correctly |
-| 2 | Parity capture in C; commit goldens | `dosraptor` → `raptor-godot` | Goldens for 8 scripts + 9 demos + 100 seeds committed |
+| 2 | Parity capture in C; commit goldens | `dosraptor` → `raptor-godot` | Goldens for 8 scripts + 100 seeds committed (demo goldens deferred to Stage 6 along with demo replay implementation) |
 | 3 | Godot scaffolding: SimClock, WaveController, Player, one Enemy type | `raptor-godot` | One enemy spawns and moves; player moves with input; checkpoint emitter outputs valid JSON |
 | 4 | First parity-green: `credits.txt` script | `raptor-godot` | L2a passes for `credits.txt` |
 | 5 | Full L2a: all 6 visible scripts + 2 held-out scripts | `raptor-godot` | L2a passes on all 8 |
@@ -122,15 +122,14 @@ tests/.fsharp/
 # tests/parity/seeds/holdout/
 ```
 
-- [ ] **Step 2: Write `project.godot`**
+- [ ] **Step 2: Write `project.godot` (no autoload yet)**
 
 Path: `raptor-godot/project.godot`
 
+The autoload section is intentionally omitted here — pointing it at `SimClock.cs` before that file exists makes Godot fail on startup. Task 0.3 adds the autoload after the script is committed.
+
 ```
 ; Engine configuration file.
-;
-; It's best edited using the editor UI and not directly,
-; since the parameters that go here are not all obvious.
 
 config_version=5
 
@@ -140,10 +139,6 @@ config/name="Raptor"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.3", "C#", "Forward Plus")
 config/icon="res://icon.svg"
-
-[autoload]
-
-SimClock="*res://src/Sim/SimClock.cs"
 
 [dotnet]
 
@@ -187,10 +182,15 @@ Path: `raptor-godot/icon.svg`
 </svg>
 ```
 
-- [ ] **Step 5: Verify Godot opens project**
+- [ ] **Step 5: Verify project files parse (no Godot smoke test yet)**
 
-Run: `godot --path . --headless --quit`
-Expected: exits 0, prints no errors. `.godot/` directory is created.
+Don't run `godot --path .` here — without the Main scene and (later) the SimClock script, the engine will fail. The Godot smoke test is deferred to the end of Task 0.3 once both files exist.
+
+```bash
+# Just verify the .csproj is well-formed
+dotnet build raptor.csproj --nologo --verbosity quiet
+# Expected: succeeds with no source files (empty assembly)
+```
 
 - [ ] **Step 6: Commit**
 
@@ -258,10 +258,22 @@ offset_top = 80.0
 text = "Raptor — Godot 4 + C#"
 ```
 
-- [ ] **Step 3: Run headless and verify SimClock ticks**
+- [ ] **Step 3: Add autoload to `project.godot`**
+
+Edit `raptor-godot/project.godot` to add the `[autoload]` section that Task 0.2 deliberately omitted. Now that `SimClock.cs` exists, this is safe.
+
+```ini
+[autoload]
+
+SimClock="*res://src/Sim/SimClock.cs"
+```
+
+Insert before the `[dotnet]` section. The leading `*` is Godot syntax for "treat this script as the autoload's root node directly."
+
+- [ ] **Step 4: Run headless and verify SimClock ticks**
 
 Run: `godot --path . --headless --quit-after 70`
-Expected: exits 0. Add a debug print temporarily to verify SimClock is reached:
+Expected: exits 0, no errors. Temporarily add a debug print to verify SimClock is reached:
 
 ```csharp
 public override void _Ready() {
@@ -272,10 +284,10 @@ public override void _Ready() {
 
 Run again, see "SimClock _Ready" in output. Remove the debug print before committing.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/Sim/SimClock.cs scenes/Main.tscn
+git add src/Sim/SimClock.cs scenes/Main.tscn project.godot
 git commit -m "Add SimClock autoload + Main scene skeleton"
 ```
 
@@ -609,22 +621,21 @@ If all checked: stage 0 done, proceed to stage 1.
 
 - [ ] **Step 1: Write `tools/extract_assets/CMakeLists.txt`**
 
+Only `main.c` is listed initially. Each subsequent task that adds a source file (1.4 png_writer, 1.6 demo_dumper, 1.7 level_dumper, 1.8 sprite_meta_dumper) appends to this list as part of that task's commit.
+
 ```cmake
 add_executable(extract_assets
     main.c
-    png_writer.c
-    level_dumper.c
-    demo_dumper.c
-    sprite_meta_dumper.c
 )
 target_include_directories(extract_assets PRIVATE
     ${CMAKE_SOURCE_DIR}/GFX
     ${CMAKE_SOURCE_DIR}/SOURCE
     ${CMAKE_SOURCE_DIR}/port/platform
 )
-target_link_libraries(extract_assets PRIVATE z)
 target_compile_definitions(extract_assets PRIVATE EXTRACT_TOOL=1)
 ```
+
+(libpng and other libraries are linked when the source files that need them are added in later tasks.)
 
 - [ ] **Step 2: Write skeleton `main.c`**
 
@@ -810,13 +821,24 @@ git commit -m "GLBAPI: add GLB_GetItemInfo for index-based iteration"
 
 The simplest path: link libpng via system package. macOS has libpng.
 
-- [ ] **Step 1: Add libpng to CMake**
+- [ ] **Step 1: Add libpng + png_writer.c to CMake**
 
-Modify `tools/extract_assets/CMakeLists.txt`:
+Modify `tools/extract_assets/CMakeLists.txt` so it now reads (in full):
 
 ```cmake
 find_package(PNG REQUIRED)
+
+add_executable(extract_assets
+    main.c
+    png_writer.c
+)
+target_include_directories(extract_assets PRIVATE
+    ${CMAKE_SOURCE_DIR}/GFX
+    ${CMAKE_SOURCE_DIR}/SOURCE
+    ${CMAKE_SOURCE_DIR}/port/platform
+)
 target_link_libraries(extract_assets PRIVATE PNG::PNG z)
+target_compile_definitions(extract_assets PRIVATE EXTRACT_TOOL=1)
 ```
 
 - [ ] **Step 2: Write `png_writer.h`**
@@ -918,19 +940,22 @@ git commit -m "extract_assets: add libpng-based RGBA PNG writer"
 
 PIC items in Raptor have a small header (`GFX_PIC` struct in `GFX/GFXAPI.H`) with width/height, then indexed pixels. Need to identify items of type==PIC and decode.
 
-- [ ] **Step 1: Read `GFX/GFXAPI.H` to find `GFX_PIC` struct definition**
+- [ ] **Step 1: Read `GFX/GFXAPI.H` to confirm `GFX_PIC` struct layout**
 
-Confirm field layout:
+The actual layout in `GFX/GFXAPI.H` is:
 
 ```c
-typedef struct {
-    INT width, height;
-    INT cx, cy;
-    BYTE data[];
-} GFX_PIC;
+typedef struct
+{
+   GFX_TYPE type;          // type of picture (also indicates encoding)
+   INT      opt1;          // option 1
+   INT      opt2;          // option 2
+   INT      width;         // width of pic
+   INT      height;        // height of pic
+}GFX_PIC;
 ```
 
-(Or similar — verify in source.)
+There is **no `data[]` field**. Pixel bytes start immediately after the struct, accessed via `(BYTE *)pic + sizeof(GFX_PIC)`. The `type` field indicates encoding (linear vs RLE). For phase 1 we extract only `type == GFX_LINEAR` PICs; RLE decoding is deferred to a later task. Read `GFX/GFXAPI.H` to confirm the type values.
 
 - [ ] **Step 2: Read `GLB_TYPES.H` (or wherever GLB types are) to find PIC type id**
 
@@ -942,7 +967,11 @@ Likely `palette[]` global (256*3 bytes) loaded by `GLB_InitSystem` or similar. V
 
 - [ ] **Step 4: Implement extraction loop in main.c**
 
+Note: pixel data starts at `(BYTE *)pic + sizeof(GFX_PIC)`, not `pic->data`. Skip non-linear-encoded PICs in phase 1.
+
 ```c
+#include "gfxapi.h"   // GFX_PIC, GFX_TYPE
+
 static void extract_sprites(const char *outdir, const uint8_t *pal6) {
     char dir[1024];
     snprintf(dir, sizeof dir, "%s/sprites", outdir);
@@ -959,11 +988,21 @@ static void extract_sprites(const char *outdir, const uint8_t *pal6) {
         BYTE *mem = GLB_LockItem(i);
         if (!mem) continue;
         GFX_PIC *pic = (GFX_PIC *)mem;
-        if (pic->width <= 0 || pic->height <= 0 || pic->width > 4096) {
+        if (pic->width <= 0 || pic->height <= 0 ||
+            pic->width > 4096 || pic->height > 4096) {
             GLB_UnlockItem(i); continue;
         }
+        // Phase 1: extract only linear-encoded PICs. RLE/encoded types are
+        // deferred to a later task. Confirm GFX_LINEAR's value from
+        // GFX/GFXAPI.H before this task ships.
+        if (pic->type != GFX_LINEAR) {
+            fprintf(stdout, "[skip non-linear] %s type=%d\n", name, pic->type);
+            GLB_UnlockItem(i); continue;
+        }
+
+        const BYTE *pixels = (const BYTE *)pic + sizeof(GFX_PIC);
         uint8_t *rgba;
-        indexed_to_rgba(pic->data, pic->width, pic->height, pal6, &rgba);
+        indexed_to_rgba(pixels, pic->width, pic->height, pal6, &rgba);
 
         char path[1280];
         snprintf(path, sizeof path, "%s/%s.png", dir, name);
@@ -1007,15 +1046,23 @@ DEM items contain `RECORD playback[MAX_DEMO+1]` (see `INPUT.C:46`). Header at in
 
 - [ ] **Step 1: Find `RECORD` struct definition**
 
-In `SOURCE/INPUT.C` or related header. Confirm fields:
+The canonical definition is in `SOURCE/PUBLIC.H`:
 
 ```c
-typedef struct {
-    BYTE  b1, b2, b3, b4;
-    SHORT px, py;
-    SHORT playerpic;
-} RECORD;
+typedef struct
+{
+   BYTE  b1;
+   BYTE  b2;
+   BYTE  b3;
+   BYTE  b4;
+   SHORT px;
+   SHORT py;
+   SHORT playerpic;
+   SHORT fil;        /* trailing alignment field — must be present in dumper */
+}RECORD;
 ```
+
+The `fil` field is required for size compatibility — without it, `count = sz / sizeof(DemoRecord)` advances by the wrong stride and corrupts every record after the first. Total record size is 12 bytes (4×BYTE + 4×SHORT).
 
 - [ ] **Step 2: Write `demo_dumper.h`**
 
@@ -1040,7 +1087,9 @@ typedef struct {
     unsigned char b1, b2, b3, b4;
     short px, py;
     short playerpic;
+    short fil;            /* matches RECORD in SOURCE/PUBLIC.H */
 } __attribute__((packed)) DemoRecord;
+_Static_assert(sizeof(DemoRecord) == 12, "DemoRecord must be 12 bytes");
 
 extern int GLB_GetItemInfo(int idx, char *name_out, size_t name_max,
                            int *type_out, size_t *size_out);
@@ -1246,7 +1295,7 @@ git commit -m "Add extract_test.sh smoke test for asset extractor"
 
 ## Stage 2: Parity capture in `dosraptor`
 
-**Goal:** Extend the C harness to emit per-second checkpoint output (parity format from spec §7), capture goldens for all 8 scripts + 9 demos + 100 seeds, commit to `raptor-godot/tests/parity/`.
+**Goal:** Extend the C harness to emit per-second checkpoint output (parity format from spec §7), capture goldens for all 8 scripts + 100 seeds, commit to `raptor-godot/tests/parity/`. **Demo goldens are explicitly deferred to Stage 6** because demo capture in C requires a "play this demo" driver we don't yet have; pulling that in here would inflate Stage 2 beyond a single coherent gate.
 
 **Files at end of stage:**
 - `dosraptor/port/platform/parity.c` (new)
@@ -1254,9 +1303,9 @@ git commit -m "Add extract_test.sh smoke test for asset extractor"
 - `dosraptor/SOURCE/RAP.C` (modified — emit hook + seed override)
 - `dosraptor/tests/parity_capture.sh` (new)
 - `raptor-godot/tests/parity/schema.json`
-- `raptor-godot/tests/parity/scripts/*.parity.txt` (8 files)
-- `raptor-godot/tests/parity/demos/*.parity.txt` (9 files)
+- `raptor-godot/tests/parity/scripts/*.parity.txt` (8 files: 6 visible + 2 held-out)
 - `raptor-godot/tests/parity/seeds/seed_<N>.parity.txt` (100 files)
+- `raptor-godot/tests/parity/demos/` directory created but empty until Stage 6.
 
 ### Task 2.1: Define the JSON schema
 
@@ -1443,8 +1492,20 @@ git commit -am "Add RAPTOR_RNG_SEED_OVERRIDE for L4 seed sweep"
 
 ```bash
 #!/usr/bin/env bash
-# Capture parity goldens for all scripts, demos, and 100 seeds.
-# Output is written to RAPTOR_GODOT_DIR/tests/parity/.
+# Capture parity goldens for all scripts and 100 seeds.
+# Output is written to $RAPTOR_GODOT_DIR/tests/parity/.
+#
+# Failure modes that this script MUST NOT silently swallow:
+#   - binary missing or wrong path
+#   - script file missing
+#   - timeout / crash during the run (exit code != 0)
+#   - empty output file (zero checkpoints emitted)
+#   - count of output files != expected count
+#
+# Each of these would commit silently broken goldens and let later
+# stages green-light against bad data. If any fails, the script exits
+# non-zero and the calling commit step does not run.
+
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -1452,38 +1513,60 @@ BIN="$REPO/build/raptor.app/Contents/MacOS/raptor"
 GODOT_REPO="${RAPTOR_GODOT_DIR:-/Users/nadavb/dev/raptor-godot}"
 PARITY_DIR="$GODOT_REPO/tests/parity"
 
-mkdir -p "$PARITY_DIR/scripts" "$PARITY_DIR/demos" "$PARITY_DIR/seeds"
+if [[ ! -x "$BIN" ]]; then
+    echo "[parity_capture] FATAL: binary not built at $BIN" >&2
+    exit 2
+fi
 
+mkdir -p "$PARITY_DIR/scripts" "$PARITY_DIR/scripts/holdout" \
+         "$PARITY_DIR/demos" "$PARITY_DIR/seeds"
+
+# Run a single capture. Fails the whole script on:
+#   - missing input script
+#   - non-zero exit (including timeout = 124)
+#   - empty output (zero checkpoints written)
 run_one() {
     local script="$1" out="$2" extra_env="${3:-}"
+    if [[ ! -f "$script" ]]; then
+        echo "[parity_capture] FATAL: missing script $script" >&2
+        return 1
+    fi
+    rm -f "$out"
     cd "$REPO"
-    eval "$extra_env" RAPTOR_PLAYTHROUGH="$script" \
-        RAPTOR_PARITY_OUT="$out" RAPTOR_TEST_DETERMINISTIC=1 \
-        timeout 120 "$BIN" >/dev/null 2>&1 || true
+    if ! eval "$extra_env" \
+            RAPTOR_PLAYTHROUGH="$script" \
+            RAPTOR_PARITY_OUT="$out" \
+            RAPTOR_TEST_DETERMINISTIC=1 \
+            timeout 120 "$BIN" >/dev/null 2>&1; then
+        echo "[parity_capture] FATAL: run failed for $script" >&2
+        return 1
+    fi
+    if [[ ! -s "$out" ]]; then
+        echo "[parity_capture] FATAL: empty output $out" >&2
+        return 1
+    fi
 }
 
-# 8 scripts (6 visible + 2 held-out)
-for s in credits help_f1 menu_demo order mission_start full_demo \
-         mission_long load_mission; do
+EXPECTED_VISIBLE=(credits help_f1 menu_demo order \
+                  mission_start full_demo mission_long load_mission)
+
+for s in "${EXPECTED_VISIBLE[@]}"; do
     echo "[parity_capture] script: $s"
     run_one "$REPO/tests/scripts/$s.txt" "$PARITY_DIR/scripts/$s.parity.txt"
 done
 
-# Held-out goes in scripts/holdout/
-mkdir -p "$PARITY_DIR/scripts/holdout"
 for s in holdout1 holdout2; do
     if [[ -f "$REPO/tests/scripts/holdout/$s.txt" ]]; then
         echo "[parity_capture] held-out: $s"
         run_one "$REPO/tests/scripts/holdout/$s.txt" \
                 "$PARITY_DIR/scripts/holdout/$s.parity.txt"
+    else
+        echo "[parity_capture] note: $s.txt absent; held-out scripts not yet defined" >&2
     fi
 done
 
-# 9 demos — for now, scaffold; full implementation requires a "play this
-# demo file" mode in the C version we don't yet have. Stage 6 will fill
-# this in with real demo capture; for stage 2 we capture only scripts.
+# Demo capture deferred to Stage 6 (requires a "play demo" driver in C).
 
-# 100 seeds × mission_start
 for n in $(seq 0 99); do
     echo "[parity_capture] seed: $n"
     run_one "$REPO/tests/scripts/mission_start.txt" \
@@ -1491,7 +1574,19 @@ for n in $(seq 0 99); do
             "RAPTOR_RNG_SEED_OVERRIDE=$n"
 done
 
-echo "[parity_capture] done"
+# Final invariant checks. If any fails the script exits non-zero.
+visible_count=$(ls "$PARITY_DIR/scripts/"*.parity.txt 2>/dev/null | wc -l | tr -d ' ')
+if [[ $visible_count -ne ${#EXPECTED_VISIBLE[@]} ]]; then
+    echo "[parity_capture] FATAL: visible scripts captured=$visible_count expected=${#EXPECTED_VISIBLE[@]}" >&2
+    exit 1
+fi
+seed_count=$(ls "$PARITY_DIR/seeds/seed_"*.parity.txt 2>/dev/null | wc -l | tr -d ' ')
+if [[ $seed_count -ne 100 ]]; then
+    echo "[parity_capture] FATAL: seeds captured=$seed_count expected=100" >&2
+    exit 1
+fi
+
+echo "[parity_capture] done: $visible_count scripts, $seed_count seeds"
 ```
 
 - [ ] **Step 2: Run capture (long: ~50 min for full set)**
@@ -1505,25 +1600,43 @@ Expect ~50 minutes wall-clock. After: `raptor-godot/tests/parity/` populated wit
 
 - [ ] **Step 3: Verify all outputs are valid schema-conforming JSON**
 
+The script must exit non-zero on any failure (bad lines, file count mismatch, empty file, or zero total checkpoints) so Step 4 (commit) does not run on broken data.
+
 ```bash
 cd /Users/nadavb/dev/raptor-godot
 python3 -c "
-import json, jsonschema, glob
+import json, jsonschema, glob, sys
 schema = json.load(open('tests/parity/schema.json'))
-total = 0; bad = 0
-for f in glob.glob('tests/parity/**/*.parity.txt', recursive=True):
-    for i, line in enumerate(open(f)):
+files = sorted(glob.glob('tests/parity/**/*.parity.txt', recursive=True))
+if len(files) < 108:  # 8 visible + 100 seeds, minimum
+    print(f'FAIL: too few files: {len(files)}', file=sys.stderr)
+    sys.exit(1)
+total = 0
+bad = 0
+empty_files = []
+for f in files:
+    lines = open(f).readlines()
+    if not lines:
+        empty_files.append(f)
+        continue
+    for i, line in enumerate(lines):
         try:
             jsonschema.validate(json.loads(line), schema)
             total += 1
         except Exception as e:
-            print(f'{f}:{i}: {e}')
+            print(f'FAIL: {f}:{i}: {e}', file=sys.stderr)
             bad += 1
-print(f'OK: {total}, bad: {bad}')
+if empty_files:
+    print(f'FAIL: {len(empty_files)} empty files: {empty_files[:3]}', file=sys.stderr)
+    sys.exit(1)
+if bad > 0 or total == 0:
+    print(f'FAIL: total={total} bad={bad}', file=sys.stderr)
+    sys.exit(1)
+print(f'OK: {total} checkpoints across {len(files)} files')
 "
 ```
 
-Expected: bad == 0.
+Expected: prints `OK: <N> checkpoints across <M> files`, exit 0. Any FAIL line → fix the C-side emitter before commit.
 
 - [ ] **Step 4: Commit goldens to raptor-godot**
 
