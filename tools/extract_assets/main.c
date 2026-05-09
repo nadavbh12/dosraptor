@@ -1,7 +1,7 @@
 // tools/extract_assets/main.c
 //
 // One-shot extractor: reads two FILE000?.GLB archives, emits sprites,
-// levels, demos, sounds, music, text into <output_dir>/.
+// levels, demos, sounds, music into <output_dir>/.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +15,7 @@
 #include "GFXAPI.H"
 #include "png_writer.h"
 #include "demo_dumper.h"
+#include "level_dumper.h"
 
 /*
  * GLB_GetFileItems() is declared in glbapi.h after our addition.
@@ -319,6 +320,9 @@ int main(int argc, char **argv) {
 
     /* Extract _REC (demo recording) items as JSON files. */
     dump_demo_items(outdir);
+
+    /* Extract _MAP (MAZELEVEL) items as JSON files. */
+    dump_level_items(outdir);
 
     return 0;
 }
