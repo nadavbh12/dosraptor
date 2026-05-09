@@ -12,8 +12,11 @@ set_source_files_properties(${EXTRACT_LEGACY_SOURCES}
         LANGUAGE C
 )
 
+find_package(PNG REQUIRED)
+
 add_executable(extract_assets
     main.c
+    png_writer.c
     ${EXTRACT_LEGACY_SOURCES}
 )
 target_include_directories(extract_assets PRIVATE
@@ -23,3 +26,4 @@ target_include_directories(extract_assets PRIVATE
     ${CMAKE_SOURCE_DIR}/port/platform/dos_shim
 )
 target_compile_definitions(extract_assets PRIVATE EXTRACT_TOOL=1)
+target_link_libraries(extract_assets PRIVATE PNG::PNG)

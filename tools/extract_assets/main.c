@@ -6,11 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <libgen.h>
 
 #include "GLBAPI.H"
+#include "GFXAPI.H"
+#include "png_writer.h"
 
 /*
  * GLB_GetFileItems() is declared in glbapi.h after our addition.
@@ -114,8 +117,30 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* Create output directory (ignore EEXIST). */
-    mkdir(outdir, 0755);
+    /* PNG writer smoke test: write a 4x4 RGBA checkerboard to /tmp. */
+    {
+        uint8_t checker[4 * 4 * 4];
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 4; x++) {
+                int p = (y * 4 + x) * 4;
+                int white = (x + y) % 2;
+                checker[p + 0] = white ? 255 : 0;    /* R */
+                checker[p + 1] = white ? 255 : 0;    /* G */
+                checker[p + 2] = white ? 255 : 0;    /* B */
+                checker[p + 3] = white ? 255 : 128;  /* A */
+            }
+        }
+        if (png_write_rgba("/tmp/checker.png", 4, 4, checker) == 0)
+            fprintf(stdout, "PNG smoke test: /tmp/checker.png written OK\n");
+        else
+            fprintf(stderr, "PNG smoke test: FAILED\n");
+    }
+
+    /* Create output directory. */
+    if (mkdir(outdir, 0755) != 0 && errno != EEXIST) {
+        perror("mkdir output directory");
+        return 1;
+    }
 
     return 0;
 }
