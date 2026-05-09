@@ -1106,7 +1106,7 @@ VOID
    else
    {
       local_cnt = FRAME_COUNT;
-      while ( FRAME_COUNT == local_cnt );
+      while ( FRAME_COUNT == local_cnt ) legacy_pump();
    }
 
    SWD_Dialog ( &dlg );

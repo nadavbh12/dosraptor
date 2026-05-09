@@ -744,7 +744,7 @@ VOID
    {
       local_cnt = FRAME_COUNT;
       if ( IMS_IsAck() ) break;
-      while ( FRAME_COUNT - local_cnt < 4 );
+      while ( FRAME_COUNT - local_cnt < 4 ) legacy_pump();
    }
 
    GFX_FadeOut ( 0, 0, 0, 63 );
@@ -789,7 +789,7 @@ VOID
    {
       local_cnt = FRAME_COUNT;
       if ( IMS_IsAck() ) break;
-      while ( FRAME_COUNT - local_cnt < 4 );
+      while ( FRAME_COUNT - local_cnt < 4 ) legacy_pump();
    }
 
    if ( ( bday_num != EMPTY ) && dig_flag )
@@ -832,7 +832,7 @@ VOID
 
       if ( KBD_Key ( SC_ESC ) ) break;
       local_cnt = FRAME_COUNT;
-      while ( FRAME_COUNT - local_cnt < 3 );
+      while ( FRAME_COUNT - local_cnt < 3 ) legacy_pump();
    }
 
    GFX_FadeOut ( 0, 0, 0, 63 );

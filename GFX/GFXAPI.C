@@ -1342,7 +1342,7 @@ INT count                  // INPUT : wait # of frame ticks
    for ( loop = 0; loop < count; loop++ )
    {
       hold = FRAME_COUNT;
-      while ( FRAME_COUNT == hold && gfxdebug == FALSE );
+      while ( FRAME_COUNT == hold && gfxdebug == FALSE ) legacy_pump();
    }
 
 }
@@ -1369,7 +1369,7 @@ INT count               // INPUT : frame rate ( MAX = 70 )
 
    for ( loop = 0; loop < count; loop++ )
    {
-      while ( FRAME_COUNT == hold && gfxdebug == FALSE );
+      while ( FRAME_COUNT == hold && gfxdebug == FALSE ) legacy_pump();
       hold = FRAME_COUNT;
    }
 
@@ -1397,7 +1397,7 @@ VOID
 {
    static INT hold = 0;
   
-   while ( FRAME_COUNT == hold && gfxdebug == FALSE );
+   while ( FRAME_COUNT == hold && gfxdebug == FALSE ) legacy_pump();
   
    GFX_MarkUpdate ( o_ud_x, o_ud_y, o_ud_lx, o_ud_ly );
   

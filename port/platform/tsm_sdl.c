@@ -15,6 +15,9 @@
 
 #include <SDL.h>
 #include <stddef.h>
+#include <stdlib.h>
+
+extern volatile int framecount;
 
 typedef struct {
     void   (*callback)(void);
@@ -22,7 +25,8 @@ typedef struct {
     int     priority;
     int     paused;
     int     in_use;
-    Uint32  next_fire_ms;     // wall-clock deadline
+    Uint32  next_fire_ms;     // wall-clock deadline (normal mode)
+    int     next_fire_fc;     // framecount deadline (deterministic mode)
 } tsm_service_t;
 
 #define TSM_MAX_SERVICES 16
@@ -45,6 +49,12 @@ int TSM_NewService(void (*function)(void), int rate, int priority, int pause)
             g_services[i].paused       = pause;
             g_services[i].in_use       = 1;
             g_services[i].next_fire_ms = SDL_GetTicks() + (Uint32)(1000 / rate);
+            /* Deterministic-mode deadline: fire when framecount has
+             * advanced by (70 / rate_hz) ticks. 70 matches the original
+             * PIT divisor. Initialize relative to current framecount. */
+            int period = 70 / rate;
+            if (period < 1) period = 1;
+            g_services[i].next_fire_fc = framecount + period;
             return i;
         }
     }
@@ -72,8 +82,35 @@ void TSM_Remove(void)
 // whose deadline has elapsed; if multiple periods passed (e.g., the user
 // alt-tabbed away), the deadline jumps forward without back-firing each
 // missed tick — same compromise the original PIT ISR made on overrun.
+//
+// In deterministic mode (RAPTOR_TEST_DETERMINISTIC=1), deadlines are
+// expressed in framecount ticks rather than wall-clock ms. That way
+// service firing rates depend only on engine progression, not real time
+// — required for pixel-perfect parity across machines.
 void tsm_sdl_dispatch_due(void)
 {
+    static int      det_checked = 0;
+    static int      det = 0;
+    if (!det_checked) {
+        const char *e = getenv("RAPTOR_TEST_DETERMINISTIC");
+        det = (e && *e && *e != '0') ? 1 : 0;
+        det_checked = 1;
+    }
+
+    if (det) {
+        for (int i = 0; i < TSM_MAX_SERVICES; i++) {
+            tsm_service_t *s = &g_services[i];
+            if (!s->in_use || s->paused) continue;
+            if ((int)(framecount - s->next_fire_fc) >= 0) {
+                if (s->callback) s->callback();
+                int period = 70 / s->rate_hz;
+                if (period < 1) period = 1;
+                s->next_fire_fc = framecount + period;
+            }
+        }
+        return;
+    }
+
     Uint32 now = SDL_GetTicks();
     for (int i = 0; i < TSM_MAX_SERVICES; i++) {
         tsm_service_t *s = &g_services[i];

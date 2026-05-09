@@ -114,6 +114,7 @@ BYTE *  palette             // INPUT : pointer to palette
                   if ( !SND_IsPatchPlaying ( back_patch ) )
                      SND_Patch ( back_patch, 127 );
                }
+               legacy_pump();
             }
          }
       }

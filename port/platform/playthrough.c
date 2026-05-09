@@ -1,15 +1,15 @@
 // port/platform/playthrough.c
 //
-// Drives the legacy game without real keyboard input by writing directly
-// into the keyboard[]/lastscan/kbd_ack globals — the same path
-// RAPTOR_TEST=play uses to inject single keys. This bypasses the SDL
-// event chain entirely, so it works regardless of the macOS focus issue
-// and regardless of whether the menu spin is actively pumping events.
+// Drives the legacy game from a script of input events. Inputs are
+// pushed onto the SDL event queue (SDL_PushEvent) so the full SDL pump
+// path runs — kbd_sdl_handle_keydown, ptr_sdl_poll, the busy-wait
+// pumps in IMS/SWD/KBD primitives. Direct lastscan/keyboard[] writes
+// would bypass that path and silently mask SDL-bound bugs (we hit five
+// of those in one session before this harness existed).
 //
-// Wait counters are driven by the 70Hz framecount timer (SDL_AddTimer
-// in gfx_sdl.c) rather than gfx_sdl_present calls — the menu spin
-// presents at ~1-2 Hz, so a present-based wait would take 30+ seconds
-// for what should be a one-second pause.
+// Wait counters are driven by framecount, which in deterministic mode
+// (RAPTOR_TEST_DETERMINISTIC=1) advances per pump rather than per
+// wall-clock tick. Same script + same engine code → same frames.
 
 #include "playthrough.h"
 #include "frame_dump.h"
@@ -32,13 +32,19 @@ extern int mouseb1;
 extern int mouseaction;
 extern volatile int framecount;
 
+/* Set by gfx_sdl when RAPTOR_GOLDEN_OUT is configured. The harness writes
+ * `# checkpoint: <label>` lines into the same stream so labels show up
+ * inline with frame hashes — trivial to spot the divergent frame in a
+ * diff and immediately know which scripted moment broke. */
+extern void gfx_sdl_golden_label(const char *label);
+
 extern unsigned char kbd_sdl_xt_for_scancode(SDL_Scancode sdl);
 
 static FILE *g_script;
 static int   g_wait_until_fc;
 static int   g_done;
-static int   g_menu_ready;   /* gates dispatch until menu is fully painted */
-static int   g_release_xt;   /* xt scancode of key to release on next tick */
+static int   g_menu_ready;     /* gates dispatch until menu is fully painted */
+static SDL_Scancode g_release_sc; /* SDL scancode of key to release on next tick */
 
 void raptor_playthrough_init(void)
 {
@@ -55,24 +61,39 @@ void raptor_playthrough_init(void)
     fflush(stdout);
 }
 
-static void inject_key(unsigned char xt)
+/* Push a synthetic SDL_KEYDOWN onto the event queue. The next pump
+ * (legacy_pump or pump_events) will dispatch it through
+ * kbd_sdl_handle_keydown, which sets keyboard[xt]/lastscan/kbd_ack the
+ * same way a real keystroke does. This goes through the SDL pump path,
+ * so any code that depends on `legacy_pump()` to see input — IMS
+ * primitives, SWD_Dialog, KBD_Wait — exercises the right code path. */
+static void inject_keydown(SDL_Scancode sc)
 {
-    /* PORT: only set lastscan/lastascii — these are consume-once (cleared
-     * by SWD_Dialog's first read). For genuinely held keys, use explicit
-     * `down NAME` / `up NAME`.
-     *
-     * lastscan is written here on the timer thread and read-and-cleared
-     * on the main thread inside SWD_Dialog (which uses __atomic_exchange).
-     * Order matters: write the satellite fields (lastascii, kbd_ack)
-     * BEFORE the release-store on lastscan, so the matching acquire-load
-     * publishes them. Otherwise a reader could see g_key=xt with g_ascii
-     * still stale. */
-    if (xt < 128) lastascii = ASCIINames[xt];
-    kbd_ack      = 1;
-    __atomic_store_n(&lastscan, xt, __ATOMIC_RELEASE);
+    SDL_Event ev = {0};
+    ev.type            = SDL_KEYDOWN;
+    ev.key.type        = SDL_KEYDOWN;
+    ev.key.state       = SDL_PRESSED;
+    ev.key.repeat      = 0;
+    ev.key.keysym.scancode = sc;
+    ev.key.keysym.sym      = SDL_GetKeyFromScancode(sc);
+    ev.key.timestamp   = SDL_GetTicks();
+    SDL_PushEvent(&ev);
 }
 
-static unsigned char xt_for(const char *name)
+static void inject_keyup(SDL_Scancode sc)
+{
+    SDL_Event ev = {0};
+    ev.type            = SDL_KEYUP;
+    ev.key.type        = SDL_KEYUP;
+    ev.key.state       = SDL_RELEASED;
+    ev.key.repeat      = 0;
+    ev.key.keysym.scancode = sc;
+    ev.key.keysym.sym      = SDL_GetKeyFromScancode(sc);
+    ev.key.timestamp   = SDL_GetTicks();
+    SDL_PushEvent(&ev);
+}
+
+static SDL_Scancode scancode_for(const char *name)
 {
     /* Aliases for keys whose canonical SDL name contains whitespace.
      * Our script parser splits on space, so "Left Ctrl" would arrive
@@ -89,13 +110,8 @@ static unsigned char xt_for(const char *name)
 
     if (sc == SDL_SCANCODE_UNKNOWN) {
         fprintf(stderr, "playthrough: unknown key '%s'\n", name);
-        return 0;
     }
-    unsigned char xt = kbd_sdl_xt_for_scancode(sc);
-    if (xt == 0) {
-        fprintf(stderr, "playthrough: no XT scancode for '%s'\n", name);
-    }
-    return xt;
+    return sc;
 }
 
 // Returns 1 if a command consumed the tick (caller should stop processing
@@ -118,33 +134,42 @@ static int dispatch(char *line)
         return 1;
     }
     if (strcmp(cmd, "key") == 0 && n == 2) {
-        unsigned char xt = xt_for(arg);
-        if (xt) {
-            inject_key(xt);
+        SDL_Scancode sc = scancode_for(arg);
+        if (sc != SDL_SCANCODE_UNKNOWN) {
+            inject_keydown(sc);
             /* Schedule release on the NEXT tick. SWD_Dialog has a
              * `while (SWD_IsButtonDown())` busy-wait on F_SELECT that
              * spins forever if keyboard[xt] never goes back to 0.
              * One-tick press is enough for the menu to dispatch. */
-            g_release_xt = xt;
-            fprintf(stdout, "playthrough: key %s (xt=0x%02x)\n", arg, xt);
+            g_release_sc = sc;
+            fprintf(stdout, "playthrough: key %s (sc=%d)\n", arg, (int)sc);
             fflush(stdout);
         }
         return 1;
     }
     if (strcmp(cmd, "down") == 0 && n == 2) {
-        unsigned char xt = xt_for(arg);
-        if (xt) keyboard[xt] = 1;
+        SDL_Scancode sc = scancode_for(arg);
+        if (sc != SDL_SCANCODE_UNKNOWN) inject_keydown(sc);
         fprintf(stdout, "playthrough: down %s\n", arg); fflush(stdout);
         return 1;
     }
     if (strcmp(cmd, "up") == 0 && n == 2) {
-        unsigned char xt = xt_for(arg);
-        if (xt) keyboard[xt] = 0;
+        SDL_Scancode sc = scancode_for(arg);
+        if (sc != SDL_SCANCODE_UNKNOWN) inject_keyup(sc);
         fprintf(stdout, "playthrough: up %s\n", arg); fflush(stdout);
         return 1;
     }
     if (strcmp(cmd, "dump") == 0 && n == 2) {
         raptor_dump_frame(arg);
+        return 1;
+    }
+    if (strcmp(cmd, "checkpoint") == 0 && n == 2) {
+        /* Write `# checkpoint: LABEL` into the golden file just before
+         * the next frame hash. When two runs diverge, you see exactly
+         * which scripted moment broke without counting frames. */
+        gfx_sdl_golden_label(arg);
+        fprintf(stdout, "playthrough: checkpoint %s\n", arg);
+        fflush(stdout);
         return 1;
     }
     if (strcmp(cmd, "mouse") == 0 && n == 2) {
@@ -199,9 +224,9 @@ void raptor_playthrough_tick(void)
 
     /* Release any momentarily-pressed key from the previous tick, so the
      * legacy code's `while (SWD_IsButtonDown())` loops can exit. */
-    if (g_release_xt) {
-        keyboard[g_release_xt] = 0;
-        g_release_xt = 0;
+    if (g_release_sc != SDL_SCANCODE_UNKNOWN) {
+        inject_keyup(g_release_sc);
+        g_release_sc = SDL_SCANCODE_UNKNOWN;
     }
 
     if (framecount < g_wait_until_fc) return;

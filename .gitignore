@@ -20,3 +20,9 @@ FILE*.GLB
 
 # Player save files (runtime state)
 CHAR*.FIL
+
+# Frame dumps from RAPTOR_DUMP_* — regenerated on demand, can be large
+dumps/
+
+# Old golden hash file from the pre-harness test setup
+tests/golden/menu_hash.txt

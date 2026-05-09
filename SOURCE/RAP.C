@@ -1104,7 +1104,7 @@ VOID
 
       RAP_DisplayStats();
 
-      while ( FRAME_COUNT - local_cnt < 3 );
+      while ( FRAME_COUNT - local_cnt < 3 ) legacy_pump();
       local_cnt = FRAME_COUNT;
 
       if ( fadeflag )

@@ -18,6 +18,7 @@ static SDL_Window    *g_window;
 static SDL_Renderer  *g_renderer;
 static SDL_Texture   *g_screen_tex;
 static SDL_TimerID    g_frame_timer;
+static int            g_deterministic;   /* RAPTOR_TEST_DETERMINISTIC=1 */
 
 // Legacy global declared `volatile INT framecount` in GFX/GFXAPI.C.
 // The original DOS build incremented this from a 70 Hz PIT ISR; we
@@ -64,8 +65,23 @@ int gfx_sdl_init(void)
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return -1;
     }
-    // 70 Hz tick rate matches the original PIT divisor used by GFX_Init.
-    g_frame_timer = SDL_AddTimer(1000 / 70, frame_tick_cb, NULL);
+
+    /* Deterministic clock mode: framecount is driven by pump_events
+     * (one tick per pump call) instead of a 70Hz wall-clock timer.
+     * Same input + same engine code path → same framecount progression
+     * → reproducible frame hashes across machines. Without this,
+     * pixel-perfect parity tests are impossible: a slow machine pumps
+     * less often than a fast one in the same wall-clock interval. */
+    const char *det = getenv("RAPTOR_TEST_DETERMINISTIC");
+    g_deterministic = (det && *det && *det != '0') ? 1 : 0;
+
+    if (!g_deterministic) {
+        // 70 Hz tick rate matches the original PIT divisor used by GFX_Init.
+        g_frame_timer = SDL_AddTimer(1000 / 70, frame_tick_cb, NULL);
+    } else {
+        fprintf(stdout, "gfx_sdl: deterministic clock (framecount driven by pump)\n");
+        fflush(stdout);
+    }
 
     g_window = SDL_CreateWindow(
         "Raptor: Call Of The Shadows",
@@ -147,6 +163,17 @@ extern void kbd_sdl_handle_keyup  (SDL_Keysym ks);
 
 static void pump_events(void)
 {
+    /* In deterministic mode, the SDL_AddTimer is disabled and framecount
+     * advances here instead — once per pump call. Spins like
+     * `while (FRAME_COUNT == hold) legacy_pump();` still terminate (after
+     * one iteration), and replays produce identical framecount sequences
+     * given identical input sequences. raptor_playthrough_tick is also
+     * called from the timer callback in non-test mode; mirror that here. */
+    if (g_deterministic) {
+        framecount++;
+        raptor_playthrough_tick();
+    }
+
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
@@ -210,6 +237,34 @@ void gfx_sdl_warp_mouse(int x, int y)
     }
 }
 
+/* FNV-1a 64-bit hash of the 64 KB displaybuffer. The 64-bit width gives
+ * 1-in-2^64 collision odds on a corpus of millions of frames — fine for
+ * a regression hash and short enough for human eyeballing in golden
+ * files. Only computed when RAPTOR_GOLDEN_OUT is set. */
+static uint64_t hash_fb(const uint8_t *fb)
+{
+    uint64_t h = 1469598103934665603ull;
+    for (int i = 0; i < LOGICAL_W * LOGICAL_H; i++) {
+        h ^= fb[i];
+        h *= 1099511628211ull;
+    }
+    return h;
+}
+
+static FILE *g_golden_out;
+static unsigned long g_present_seq;
+
+/* Called by playthrough's `checkpoint LABEL` script command. Tags the
+ * golden stream with a human-readable label so a diff of two runs makes
+ * the divergent moment obvious. */
+void gfx_sdl_golden_label(const char *label)
+{
+    if (!g_golden_out || !label) return;
+    fprintf(g_golden_out, "# checkpoint: %s (after frame %lu)\n",
+            label, g_present_seq);
+    fflush(g_golden_out);
+}
+
 void gfx_sdl_present(const uint8_t *displaybuffer)
 {
     if (!displaybuffer || !g_argb || !g_renderer || !g_screen_tex) return;
@@ -223,6 +278,29 @@ void gfx_sdl_present(const uint8_t *displaybuffer)
     SDL_RenderClear(g_renderer);
     SDL_RenderCopy(g_renderer, g_screen_tex, NULL, NULL);
     SDL_RenderPresent(g_renderer);
+
+    /* Per-frame hash output. Lazy-opens the file on first present. The
+     * hash covers exactly the bytes we just rendered (post-compose,
+     * including HUD), so two runs of the same script must produce
+     * identical lines. */
+    if (!g_golden_out) {
+        const char *path = getenv("RAPTOR_GOLDEN_OUT");
+        if (path && *path) {
+            g_golden_out = fopen(path, "w");
+            if (!g_golden_out) {
+                fprintf(stderr, "gfx_sdl: fopen(%s): %s\n",
+                        path, SDL_GetError());
+            } else {
+                fprintf(stdout, "gfx_sdl: writing per-frame hashes to %s\n", path);
+                fflush(stdout);
+            }
+        }
+    }
+    if (g_golden_out) {
+        fprintf(g_golden_out, "%lu %016llx\n",
+                ++g_present_seq, (unsigned long long)hash_fb(displaybuffer));
+        fflush(g_golden_out);
+    }
 
     pump_events();
 
