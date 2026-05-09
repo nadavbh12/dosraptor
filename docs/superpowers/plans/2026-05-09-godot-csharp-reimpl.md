@@ -93,7 +93,9 @@ Path: `raptor-godot/.gitignore`
 .import/
 build/
 *.csproj.user
-*.cs.uid
+# Match all UID sidecars (Godot 4 emits them for scripts and may emit for
+# scenes/resources in future minor versions).
+*.uid
 
 # .NET
 bin/
@@ -137,7 +139,9 @@ config_version=5
 
 config/name="Raptor"
 run/main_scene="res://scenes/Main.tscn"
-config/features=PackedStringArray("4.3", "C#", "Forward Plus")
+; Compatibility renderer: lighter, smaller export templates, supports
+; web/mobile. Raptor is 2D-only so we don't need Forward Plus's 3D path.
+config/features=PackedStringArray("4.3", "C#", "Compatibility")
 config/icon="res://icon.svg"
 
 [dotnet]
