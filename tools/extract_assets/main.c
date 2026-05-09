@@ -17,6 +17,7 @@
 #include "demo_dumper.h"
 #include "level_dumper.h"
 #include "sprite_meta_dumper.h"
+#include "wav_writer.h"
 
 /*
  * GLB_GetFileItems() is declared in glbapi.h after our addition.
@@ -327,6 +328,9 @@ int main(int argc, char **argv) {
 
     /* Extract _ITM (SPRITE struct array) items as JSON files. */
     dump_sprite_meta_items(outdir);
+
+    /* Extract _FX digital PCM items as WAV files. */
+    dump_sound_items(outdir);
 
     return 0;
 }

@@ -20,6 +20,7 @@ add_executable(extract_assets
     demo_dumper.c
     level_dumper.c
     sprite_meta_dumper.c
+    wav_writer.c
     ${EXTRACT_LEGACY_SOURCES}
 )
 target_include_directories(extract_assets PRIVATE
