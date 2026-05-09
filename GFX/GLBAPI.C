@@ -250,6 +250,21 @@ VOID
 
 
 /*------------------------------------------------------------------------
+   GLB_GetFileItems() - Returns number of items in a loaded .GLB file
+   Public accessor for the item count stored in filedesc[filenum].items
+   after GLB_InitSystem() has been called.
+ ------------------------------------------------------------------------*/
+INT
+GLB_GetFileItems (
+INT filenum
+)
+{
+   if ( filenum < 0 || filenum >= MAX_GLB_FILES )
+      return 0;
+   return filedesc[ filenum ].items;
+}
+
+/*------------------------------------------------------------------------
    GLB_NumItems() - Returns number of items in a .GLB file
  ------------------------------------------------------------------------*/
 PRIVATE INT

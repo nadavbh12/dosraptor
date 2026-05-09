@@ -44,6 +44,14 @@ typedef struct
 #define GLB_ENCODED  1
 
 /*************************************************************************
+   GLB_GetFileItems() - Returns item count for a loaded GLB file
+ *************************************************************************/
+INT
+GLB_GetFileItems (
+INT filenum                // INPUT: file number (0-based)
+);
+
+/*************************************************************************
    GLB_InitSystem() - Starts up .GLB file system
  *************************************************************************/
 INT
