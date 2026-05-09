@@ -47,6 +47,12 @@ VOID
 {
    INT rval = FALSE;
 
+   /* PORT: pump SDL events so kbd_ack / mouse_b*_ack actually reflect
+    * input that arrived since the last call. Many legacy spins look
+    * like `while (!IMS_CheckAck());` (e.g. WINDOWS.C:439); without
+    * pumping here they hang forever in the port. */
+   legacy_pump();
+
    if ( mouse_b1_ack )
       rval = TRUE;
 
@@ -68,7 +74,14 @@ VOID
 )
 {
    BOOL ret_val = FALSE;
-  
+
+   /* PORT: pump SDL events so KBD_LASTSCAN / PTR_B* see live input.
+    * Many empty-body release spins (e.g. INTRO.C:683, RAP.C:905,
+    * STORE.C:614, WINDOWS.C:323) are `while (IMS_IsAck());` — without
+    * pumping here, they spin forever because the SDL_KEYUP that would
+    * clear keyboard[] never gets processed. */
+   legacy_pump();
+
    if ( KBD_LASTSCAN )
    {
       KBD_LASTSCAN = FALSE;
@@ -80,7 +93,7 @@ VOID
       ret_val = TRUE;
    else if ( PTR_B3 )
       ret_val = TRUE;
-  
+
    return ( ret_val );
 }
   
@@ -98,6 +111,9 @@ VOID
    {
       if ( IMS_CheckAck() )
          break;
+      /* PORT: pump SDL events so kbd_ack / mouse_b1_ack actually update.
+       * Without this, IMS_WaitAck hangs forever in the port. */
+      legacy_pump();
    }
 
    IMS_StartAck();
@@ -125,7 +141,11 @@ INT   secs                 // INPUT : seconds to wait
       for ( loop = 0; loop < 55; loop++ )
       {
          hold = FRAME_COUNT;
-         while ( FRAME_COUNT == hold );
+         /* PORT: pump SDL events while waiting for the next frame tick,
+          * so the IMS_CheckAck() below sees real keypresses. Without
+          * this, the credits screen and other timed waits ignore input
+          * for the full duration. */
+         while ( FRAME_COUNT == hold ) legacy_pump();
 
          if ( IMS_CheckAck() )
          {

@@ -99,6 +99,19 @@ static inline int int386(int n, const union REGS *in, union REGS *out) {
     if (n == 0x33 && in && out) {
         switch (in->w.ax) {
         case 0x0000: out->w.ax = 0xFFFFu; break;
+        case 0x0004: {
+            /* Set mouse position. ECX is virtual-x*2 (DOS quirk —
+             * 320x200 mode reports x in the 0..639 range), EDX is y.
+             * Without this, PTR_SetPos's `cur_mx = x` is immediately
+             * overwritten by ptr_sdl_poll on the next pump, so keyboard
+             * menu navigation can't move the cursor onto the next
+             * button. */
+            extern void gfx_sdl_warp_mouse(int x, int y);
+            int x = (int)(in->x.ecx >> 1);
+            int y = (int)in->x.edx;
+            gfx_sdl_warp_mouse(x, y);
+            break;
+        }
         default:     break;
         }
     }
@@ -201,5 +214,18 @@ static inline int chsize(int fd, long size) { return ftruncate(fd, size); }
 /* ---- random() --------------------------------------------------------- *
  * GFX/types.h does `#define random(x) (rand()%x)` — that still works on
  * macOS (rand() is in <stdlib.h>). Nothing to do. */
+
+/* ---- legacy busy-wait pump -------------------------------------------- *
+ * Several legacy spins (SWD_Dialog F_SELECT's `while (SWD_IsButtonDown())`,
+ * KBD_Wait's `while (*ky)`, etc.) wait for a key/button to be released.
+ * In DOS the keyboard ISR cleared keyboard[] independently. In the port,
+ * keyboard[] only updates when SDL events are pumped, which only happens
+ * inside gfx_sdl_present. An empty-body spin therefore deadlocks.
+ *
+ * legacy_pump() is a one-shot SDL_PollEvent drain that legacy code calls
+ * inside its release-spins so the SDL_KEYUP / mouse-button-up actually
+ * lands. It's a thin wrapper so we don't pull <SDL.h> into legacy TUs. */
+extern void gfx_sdl_pump_events_only(void);
+static inline void legacy_pump(void) { gfx_sdl_pump_events_only(); }
 
 #endif /* RAPTOR_DOS_COMPAT_H */

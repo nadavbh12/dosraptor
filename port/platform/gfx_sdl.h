@@ -40,4 +40,10 @@ void *gfx_sdl_window_handle(void);
 // debug frame-dumper to materialize indexed pixels into BMP rows.
 const uint32_t *gfx_sdl_palette_lut(void);
 
+// Warp the OS mouse cursor to logical (320x200) coords (x, y). Used by
+// PTR_SetPos to replicate INT 33h AX=4 — keyboard menu navigation moves
+// the cursor onto the next button, and without warping, ptr_sdl_poll
+// would immediately overwrite cur_mx/cur_my with the unmoved OS cursor.
+void gfx_sdl_warp_mouse(int x, int y);
+
 #endif

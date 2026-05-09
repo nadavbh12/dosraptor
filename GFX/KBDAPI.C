@@ -170,6 +170,10 @@ INT scancode               // SCANCODE see keys.h
    {
       if ( ! *ky )
          break;
+      /* PORT: pump SDL events so SDL_KEYUP can clear keyboard[scancode].
+       * In DOS the keyboard ISR did this automatically; we don't have
+       * one — only pump_events() in gfx_sdl_present updates the array. */
+      legacy_pump();
    }
 
    lastscan = SC_NONE;

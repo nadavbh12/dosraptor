@@ -45,29 +45,44 @@ void TILE_ClipDraw(void)
  * Defined in SOURCE/MAP.H as 16. The HUD lives in [0..MAP_LEFT) on the
  * left and [MAP_LEFT+288..320) on the right. */
 #define MAP_LEFT 16
+#define PLAYFIELD_WIDTH 288  /* MAP_RIGHT - MAP_LEFT = 304 - 16 */
 
 extern INT g_mapleft;
 
-// In DOS this only copied the playfield strip (288 wide) from displaybuffer
-// to displayscreen+VRAM. We do a full present plus a buffer-wide memcpy —
-// presenting copies the whole screen anyway, and the wider memcpy keeps
-// HUD pixels in sync without a separate path.
+/* In DOS, displayscreen WAS the VRAM front buffer (0xa0000) and was the
+ * compositing target: RAP_DisplayShieldLevel and other HUD code wrote
+ * shield bars directly into displayscreen's side strips, while the
+ * playfield (sprites, tiles, score) was composed in displaybuffer.
+ * TILE_DisplayScreen blitted displaybuffer's playfield strip
+ * [MAP_LEFT..MAP_LEFT+288) on top of displayscreen, leaving displayscreen's
+ * HUD strips (x in [0..MAP_LEFT) and [MAP_LEFT+288..320)) intact — the
+ * end result on VRAM was HUD-strips-from-displayscreen + playfield-from-
+ * displaybuffer.
+ *
+ * In the port, displayscreen is just a host buffer; we have to present
+ * the composed image explicitly. So: copy the playfield strip into
+ * displayscreen the same way DOS did, then present displayscreen. This
+ * preserves the shield bars that RAP_DisplayShieldLevel just wrote. */
 void TILE_DisplayScreen(void)
 {
-    gfx_sdl_present(displaybuffer);
-    if (displayscreen) memcpy(displayscreen, displaybuffer, 64000);
+    if (displayscreen && displaybuffer) {
+        for (int y = 0; y < 200; y++) {
+            memcpy(displayscreen + y * 320 + MAP_LEFT,
+                   displaybuffer + y * 320 + MAP_LEFT,
+                   PLAYFIELD_WIDTH);
+        }
+        gfx_sdl_present(displayscreen);
+    } else {
+        gfx_sdl_present(displaybuffer);
+    }
 }
 
-// Screen shake on heavy explosions / level fades. The original blits a
-// 296-wide playfield strip from displaybuffer (at MAP_LEFT-4) to
-// displayscreen at (g_mapleft-4) — `g_mapleft = MAP_LEFT + shakes[i]`,
-// where shakes[] is a small horizontal-jitter table set in RAP.C. The
-// 4-pixel padding on each side gives room for the shake offset.
-//
-// Doing it pixel-equivalent on our buffer:
-//   - HUD strips (left of MAP_LEFT-4 and right of MAP_LEFT-4+296) come
-//     straight from displaybuffer → displayscreen
-//   - Playfield slides horizontally based on g_mapleft - MAP_LEFT
+/* Screen shake on heavy explosions / level fades. Original blits a
+ * 296-wide strip from displaybuffer at (MAP_LEFT-4=12) into displayscreen
+ * at (g_mapleft-4) — `g_mapleft = MAP_LEFT + shakes[i]`. The 4-pixel
+ * padding on each side gives room for the shake offset; the HUD shield
+ * bars at x=8 and x=308 sit OUTSIDE the 296-strip so they never get
+ * stomped. */
 void TILE_ShakeScreen(void)
 {
     if (!displaybuffer) return;
@@ -79,10 +94,6 @@ void TILE_ShakeScreen(void)
         for (int y = 0; y < 200; y++) {
             BYTE *src_row = displaybuffer + y * 320;
             BYTE *dst_row = displayscreen + y * 320;
-            /* Copy the HUD/border first — straight 1:1 — so any shake
-             * offset only displaces the playfield. */
-            memcpy(dst_row, src_row, 320);
-            /* Then overlay the playfield with the horizontal shake. */
             int sx = src_xstart;
             int dx = dst_xstart;
             int w  = strip_w;
@@ -91,7 +102,8 @@ void TILE_ShakeScreen(void)
             if (w > 0)
                 memcpy(dst_row + dx, src_row + sx, (size_t)w);
         }
+        gfx_sdl_present(displayscreen);
+    } else {
+        gfx_sdl_present(displaybuffer);
     }
-
-    gfx_sdl_present(displayscreen ? displayscreen : displaybuffer);
 }

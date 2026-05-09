@@ -2001,7 +2001,7 @@ SFIELD *firstfld           // INPUT : pointer to current field
    }
   
    if ( mflag )
-      while ( PTR_B1 );
+      while ( PTR_B1 ) legacy_pump();   /* PORT: see F_SELECT spin note */
   
    return ( flag );
 }
@@ -2103,7 +2103,16 @@ SWD_DLG * swd_dlg          // OUTPUT: pointer to info structure
    INT         sy;
    INT         loop;
    BOOL        update;
-  
+
+   /* PORT: SWD_Dialog is THE dispatcher every dialog loop polls. Many
+    * loops (HELP_Win, the main menu, the ship-comp screen) only call
+    * GFX_DisplayUpdate when state actually changes, so without pumping
+    * here, real keystrokes never reach lastscan and the dialog appears
+    * to freeze. Pumping at the dispatcher entry — once per iteration —
+    * is the natural place: it's the input read, and it costs one
+    * SDL_PollEvent per call. */
+   legacy_pump();
+
    /* PORT: DOS wrapped this read-and-clear in _disable()/_enable() to
     * block the keyboard ISR. In the port the macros are no-ops and the
     * writer is the playthrough timer thread; a non-atomic load+store
@@ -2326,7 +2335,10 @@ SWD_DLG * swd_dlg          // OUTPUT: pointer to info structure
                lastfld = 0;
             }
             GFX_DisplayUpdate();
-            while ( SWD_IsButtonDown() );
+            /* PORT: pump SDL events inside the release-spin, otherwise
+             * keyboard[SC_ENTER] never sees the SDL_KEYUP (DOS had an
+             * ISR; we don't). Empty-body spin would freeze the menu. */
+            while ( SWD_IsButtonDown() ) legacy_pump();
             if ( kbactive || curfld->kbflag )
                curfld->bstatus = UP;
             else

@@ -9,6 +9,7 @@
 // scaling.
 
 #include <SDL.h>
+#include <limits.h>
 
 extern int cur_mx, cur_my;
 extern int mouseb1, mouseb2, mouseb3;
@@ -46,7 +47,8 @@ void ptr_sdl_shutdown(void)
 
 extern void *gfx_sdl_window_handle(void);
 
-// Called from gfx_sdl_present every frame.
+// Called from gfx_sdl_present every frame, and from gfx_sdl_pump_events_only
+// during legacy busy-wait spins so PTR_B1 reflects mouse-button state.
 void ptr_sdl_poll(SDL_Renderer *renderer)
 {
     /* If the SDL window doesn't have input focus, SDL_GetMouseState returns
@@ -62,20 +64,35 @@ void ptr_sdl_poll(SDL_Renderer *renderer)
     int wx, wy;
     Uint32 buttons = SDL_GetMouseState(&wx, &wy);
 
-    // Window space -> 320x200 logical.
-    if (renderer) {
-        float lx = 0, ly = 0;
-        SDL_RenderWindowToLogical(renderer, wx, wy, &lx, &ly);
-        cur_mx = (int)lx;
-        cur_my = (int)ly;
-    } else {
-        cur_mx = wx;
-        cur_my = wy;
+    /* Only stomp cur_mx/cur_my when the OS cursor actually moved since
+     * the last poll. Otherwise PTR_SetPos's warp (used by keyboard menu
+     * navigation in WIN_Hangar etc.) gets reverted on the next poll
+     * before the dialog code can react to the new position. With this
+     * gate, a successful warp updates cur_mx/cur_my via PTR_SetPos and
+     * ptr_sdl_poll leaves them alone until the user physically moves
+     * the mouse. If the warp failed (e.g. window not focused), cur_mx
+     * still holds the PTR_SetPos value, so keyboard nav works either
+     * way. */
+    static int last_wx = INT_MIN, last_wy = INT_MIN;
+    if (wx != last_wx || wy != last_wy) {
+        last_wx = wx;
+        last_wy = wy;
+
+        // Window space -> 320x200 logical.
+        if (renderer) {
+            float lx = 0, ly = 0;
+            SDL_RenderWindowToLogical(renderer, wx, wy, &lx, &ly);
+            cur_mx = (int)lx;
+            cur_my = (int)ly;
+        } else {
+            cur_mx = wx;
+            cur_my = wy;
+        }
+        if (cur_mx < 0)   cur_mx = 0;
+        if (cur_mx > 319) cur_mx = 319;
+        if (cur_my < 0)   cur_my = 0;
+        if (cur_my > 199) cur_my = 199;
     }
-    if (cur_mx < 0)   cur_mx = 0;
-    if (cur_mx > 319) cur_mx = 319;
-    if (cur_my < 0)   cur_my = 0;
-    if (cur_my > 199) cur_my = 199;
 
     mouseb1 = (buttons & SDL_BUTTON(SDL_BUTTON_LEFT))   ? 1 : 0;
     mouseb2 = (buttons & SDL_BUTTON(SDL_BUTTON_RIGHT))  ? 1 : 0;

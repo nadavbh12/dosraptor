@@ -176,9 +176,39 @@ int gfx_sdl_should_quit(void) { return g_should_quit; }
 
 const uint32_t *gfx_sdl_palette_lut(void) { return g_pal_lut; }
 
-void gfx_sdl_pump_events_only(void) { pump_events(); }
+void gfx_sdl_pump_events_only(void)
+{
+    pump_events();
+    /* PORT: legacy busy-wait spins (e.g. WIN_Hangar's `while (IMS_IsAck())`
+     * after a mouse-driven menu choice) need PTR_B1 to clear when the user
+     * releases the button. mouseb1 is only updated by ptr_sdl_poll, which
+     * is otherwise only called from gfx_sdl_present — so without polling
+     * here, the spin sees PTR_B1 stuck high and hangs. */
+    extern void ptr_sdl_poll(SDL_Renderer *renderer);
+    ptr_sdl_poll(g_renderer);
+}
 
 void *gfx_sdl_window_handle(void) { return g_window; }
+
+void gfx_sdl_warp_mouse(int x, int y)
+{
+    if (!g_window || !g_renderer) return;
+    /* Map 320x200 logical → window pixels. Compute the scale directly
+     * from the window size rather than going through
+     * SDL_RenderLogicalToWindow (the API exists but reportedly has odd
+     * behavior on hi-DPI displays in some SDL builds). */
+    int ww = 0, wh = 0;
+    SDL_GetWindowSize(g_window, &ww, &wh);
+    int wx = (x * ww) / 320;
+    int wy = (y * wh) / 200;
+    SDL_WarpMouseInWindow(g_window, wx, wy);
+
+    if (getenv("RAPTOR_MOUSE_TRACE")) {
+        fprintf(stdout, "[warp] logical=(%d,%d) win=(%d,%d) ww=%d wh=%d\n",
+                x, y, wx, wy, ww, wh);
+        fflush(stdout);
+    }
+}
 
 void gfx_sdl_present(const uint8_t *displaybuffer)
 {
