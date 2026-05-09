@@ -16,6 +16,7 @@
 #include "png_writer.h"
 #include "demo_dumper.h"
 #include "level_dumper.h"
+#include "sprite_meta_dumper.h"
 
 /*
  * GLB_GetFileItems() is declared in glbapi.h after our addition.
@@ -323,6 +324,9 @@ int main(int argc, char **argv) {
 
     /* Extract _MAP (MAZELEVEL) items as JSON files. */
     dump_level_items(outdir);
+
+    /* Extract _ITM (SPRITE struct array) items as JSON files. */
+    dump_sprite_meta_items(outdir);
 
     return 0;
 }
