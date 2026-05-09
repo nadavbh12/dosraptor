@@ -68,9 +68,13 @@ extern struct _parity_obj last_objs;
 // Module state
 // ---------------------------------------------------------------------------
 
-static FILE *g_out       = NULL;
-static int   g_in_game   = 0;   // 1 while Do_Game is running
-static int   g_game_num  = 0;   // 0-based game index (cur_game at entry)
+static FILE *g_out        = NULL;
+static int   g_in_game    = 0;   // 1 while Do_Game is running
+static int   g_game_num   = 0;   // 0-based game index (cur_game at entry)
+static int   g_game_fc0   = 0;   // framecount at raptor_parity_game_enter
+                                  // Emit relative ticks so captures from
+                                  // different runs align on game time, not
+                                  // absolute startup framecount.
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -129,6 +133,7 @@ void raptor_parity_init(void) {
 void raptor_parity_game_enter(int game) {
     g_game_num = game;
     g_in_game  = 1;
+    g_game_fc0 = framecount;   // anchor for relative tick calculation
 }
 
 void raptor_parity_game_exit(void) {
@@ -138,7 +143,11 @@ void raptor_parity_game_exit(void) {
 void raptor_parity_tick(void) {
     if (!g_out) return;
     // Emit once per simulated second: ~70 frames at 70 Hz.
-    if (framecount % 70 != 0) return;
+    // Use relative framecount (frames since game_enter) so that captures
+    // from different runs align on game time rather than absolute startup
+    // framecount, which varies with machine load and rendering speed.
+    int rel_fc = framecount - g_game_fc0;
+    if (rel_fc % 70 != 0) return;
 
     int shield  = clamp_shield(OBJS_GetAmt(PARITY_S_ENERGY));
     int enemies = clamp_to_64(numships);
@@ -152,7 +161,7 @@ void raptor_parity_tick(void) {
         "{\"fc\":%d,\"win\":\"%s\",\"player_x\":%d,\"player_y\":%d,"
         "\"score\":%u,\"shield\":%d,\"enemies\":%d,"
         "\"pbullets\":%d,\"ebullets\":%d,\"obj_hash\":\"%016llx\"}\n",
-        framecount,
+        rel_fc,
         win_state_name(),
         px, py,
         plr.score,

@@ -829,7 +829,13 @@ VOID
 
    draw_player = TRUE;
 
-   srand ( ( 1024 * game_wave [ cur_game ] ) );
+   {
+      const char *override = getenv("RAPTOR_RNG_SEED_OVERRIDE");
+      int seed = (override && *override)
+          ? atoi(override)
+          : (1024 * game_wave[cur_game]);
+      srand(seed);
+   }
 
    fadeflag = FALSE;
    end_fadeflag = FALSE;
