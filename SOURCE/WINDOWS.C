@@ -466,8 +466,11 @@ VOID
    SWD_ShowAllWindows();
    GFX_DisplayUpdate();
    GFX_FadeIn ( palette, 16 );
-  
+
+   /* Parity emitter: announce ORDER win-state for IMS_WaitTimed ticks. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(4); }
    IMS_WaitTimed ( 15 );
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(0); }
 
    GFX_FadeOut ( 0, 0, 0, 16 );
    SWD_DestroyWindow ( window );
@@ -505,8 +508,11 @@ VOID
    SWD_ShowAllWindows();
    GFX_DisplayUpdate();
    GFX_FadeIn ( palette, 16 );
-  
+
+   /* Parity emitter: announce CREDITS win-state for IMS_WaitTimed ticks. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(2); }
    rval = IMS_WaitTimed ( 25 );
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(0); }
 
    GFX_FadeOut ( 0, 0, 0, 16 );
    SWD_DestroyWindow ( window );
@@ -1087,8 +1093,11 @@ VOID
    SWD_SetWindowPtr ( window );
    PTR_DrawCursor ( TRUE );
 
+   /* Parity emitter: announce HANGAR win-state for SWD_Dialog ticks. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(5); }
+
    mainloop:
-  
+
    pic_cnt++;
 
    if ( pic_cnt > 4 )
@@ -1283,11 +1292,14 @@ VOID
    goto mainloop;
   
    hangar_exit:
-  
+
+   /* Parity emitter: leave HANGAR win-state on exit. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(0); }
+
    PTR_DrawCursor ( FALSE );
 
    GFX_FadeOut ( 0, 0, 0, 16 );
-  
+
    SWD_DestroyWindow ( window );
    memset ( displaybuffer, 0, 64000 );
    GFX_DisplayUpdate();
@@ -2002,6 +2014,8 @@ VOID
    /* Playthrough harness: arm the script now that the menu is up and
     * KBD_Clear() has already run for this menu instance. */
    { extern void raptor_playthrough_menu_ready(void); raptor_playthrough_menu_ready(); }
+   /* Parity emitter: announce MENU win-state for menu-side checkpoints. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(1); }
 
    if ( ingameflag )
       SND_PlaySong ( RINTRO_MUS, TRUE, TRUE );
@@ -2139,16 +2153,19 @@ VOID
    goto mainloop;
 
    menu_exit:
-  
+
+   /* Parity emitter: leave MENU win-state (back to UNKNOWN) on exit. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(0); }
+
    PTR_DrawCursor ( FALSE );
-  
+
    GFX_FadeOut ( 0, 0, 0, 16 );
    SWD_DestroyWindow ( window );
    memset ( displaybuffer, 0, 64000 );
 
    GFX_DisplayUpdate();
    GFX_SetPalette ( palette, 0 );
-  
+
    ltable[0] = cz1;
 
    hangto = HANGTOSTORE;

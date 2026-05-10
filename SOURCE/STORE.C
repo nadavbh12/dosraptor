@@ -269,6 +269,9 @@ VOID
    SWD_SetFieldPtr ( window, STOR_VEXIT );
    PTR_DrawCursor ( TRUE );
 
+   /* Parity emitter: announce STORE win-state for SWD_Dialog ticks. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(6); }
+
    obj_cnt  = OBJS_GetNum();
 
    Harrold ( HAR1_TXT );
@@ -610,6 +613,8 @@ VOID
    goto mainloop;
 
    store_exit:
+   /* Parity emitter: leave STORE win-state on exit. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(0); }
    SND_Patch ( FX_DOOR, 127 );
    while ( IMS_IsAck() );
    SWD_SetButtonFlag ( TRUE );

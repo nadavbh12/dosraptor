@@ -2113,6 +2113,12 @@ SWD_DLG * swd_dlg          // OUTPUT: pointer to info structure
     * SDL_PollEvent per call. */
    legacy_pump();
 
+   /* Port parity emitter: emit one checkpoint per simulated second even
+    * in menu/dialog screens that never enter Do_Game. raptor_parity_tick()
+    * is rate-limited internally (mod-70 framecount gate) so calling it
+    * here on every hot-spin is safe — it exits immediately in most calls. */
+   { extern void raptor_parity_tick(void); raptor_parity_tick(); }
+
    /* PORT: DOS wrapped this read-and-clear in _disable()/_enable() to
     * block the keyboard ISR. In the port the macros are no-ops and the
     * writer is the playthrough timer thread; a non-atomic load+store

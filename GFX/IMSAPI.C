@@ -147,6 +147,11 @@ INT   secs                 // INPUT : seconds to wait
           * for the full duration. */
          while ( FRAME_COUNT == hold ) legacy_pump();
 
+         /* Port parity emitter: emit menu-state checkpoints during timed
+          * waits (credits, order info) which never call SWD_Dialog.
+          * raptor_parity_tick() is rate-limited internally (mod-70 gate). */
+         { extern void raptor_parity_tick(void); raptor_parity_tick(); }
+
          if ( IMS_CheckAck() )
          {
             rval = 1;

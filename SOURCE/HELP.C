@@ -55,11 +55,14 @@ CHAR * strpage             // INPUT : GLB string item
 
    if ( item == EMPTY )
       EXIT_Error ("HELP() - Invalid Page");
-   
+
    curpage = item - startitem;
 
    KBD_Clear();
    window = SWD_InitWindow ( HELP_SWD );
+
+   /* Parity emitter: announce HELP win-state for SWD_Dialog ticks. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(3); }
 
    SND_Patch ( FX_DOOR, 127 );
 
@@ -150,10 +153,13 @@ CHAR * strpage             // INPUT : GLB string item
    goto mainloop;
 
    func_exit:
-  
+
+   /* Parity emitter: leave HELP win-state on exit. */
+   { extern void raptor_parity_set_win_state(int); raptor_parity_set_win_state(0); }
+
    SWD_DestroyWindow ( window );
    SWD_ShowAllWindows();
    GFX_DisplayUpdate();
-  
+
    return;
 }
